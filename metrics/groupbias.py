@@ -35,11 +35,42 @@ class groupFairness():
         test_pre_data=test_pre_data[self.target_attributions].values
         score1=test_1.sum(axis=0)/test_pre_data.sum(axis=0)
         score0=test_0.sum(axis=0)/(1-test_pre_data).sum(axis=0)
+        score_1_df=pd.DataFrame(score1).T
+        score_1_df.columns=self.target_attributions
+        score_0_df=pd.DataFrame(score0).T
+        score_0_df.columns=self.target_attributions
+
+
 
         # group_names=self.group_attr.keys()
         scores={}
         count=0
         for group_name,attr_list in self.group_attr.items():
             if (len(attr_list)==1):
-                scores[group_name]=abs(score1[count]-score0[count])/2
-                count=count+1
+                scores[group_name]=abs((score_1_df[attr_list]-score_0_df[attr_list]).values[0][0])
+
+            else:
+                score_np=score_1_df[attr_list].values
+                score_temp=0
+                for s in score_np[0]:
+                    score_temp+=abs(s-score_np.mean())
+                scores[group_name]=score_temp/len(attr_list)
+                    
+        return scores
+
+    def plot_result(self,result):
+        plt.figure(figsize=(40, 40))
+        font = {
+            'weight': 'normal',
+            'size': 20
+        }
+        plt.xlabel(type, font)
+        # if type=="multi":
+        #     xlabel=self.group_attr.keys()
+        # else:
+        #     xlabel=self.target_attributions
+        plt.plot(result.values(), result.keys(), linewidth=3, marker='o', markersize=15)
+        plt.yticks(size=25)
+        plt.xticks(size=15)
+        plt.savefig('groupeo_vggface2.png')
+        plt.show()
