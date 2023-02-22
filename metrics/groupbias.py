@@ -47,18 +47,18 @@ class groupFairness():
         count=0
         for group_name,attr_list in self.group_attr.items():
             if (len(attr_list)==1):
-                scores[group_name]=abs((score_1_df[attr_list]-score_0_df[attr_list]).values[0][0])
+                scores[group_name]=np.array([score_1_df[attr_list].values[0][0],score_0_df[attr_list].values[0][0]]).std()
 
             else:
                 score_np=score_1_df[attr_list].values
-                score_temp=0
-                for s in score_np[0]:
-                    score_temp+=abs(s-score_np.mean())
-                scores[group_name]=score_temp/len(attr_list)
+                # score_temp=0
+                # for s in score_np[0]:
+                #     score_temp+=abs(s-score_np.mean())
+                scores[group_name]=score_np.std()
                     
         return scores
 
-    def plot_result(self,result):
+    def plot_result(self,result,filename=""):
         plt.figure(figsize=(40, 40))
         font = {
             'weight': 'normal',
@@ -72,5 +72,17 @@ class groupFairness():
         plt.plot(result.values(), result.keys(), linewidth=3, marker='o', markersize=15)
         plt.yticks(size=25)
         plt.xticks(size=15)
-        plt.savefig('groupeo_vggface2.png')
+        plt.savefig(filename+"_"+'groupeo_vggface2.png')
+        plt.show()
+        
+    def plot_bar_result(self,result,filename=""):
+        plt.figure(figsize=(60, 50))
+
+        plt.bar(result.keys(), result.values())
+        plt.xlabel("Attributes",size=40)
+        plt.ylabel("group fairness",size=40)
+        
+        plt.yticks(size=40)
+        plt.xticks(size=35,rotation=60)
+        plt.savefig("groupfairness_bar_"+filename+'.png')
         plt.show()

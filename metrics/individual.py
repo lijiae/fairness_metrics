@@ -30,27 +30,57 @@ class indivisualFairness():
     def EqualOppotunity(self,test_pre_path):
         test_pre_data=self.test_data.merge(pd.read_csv(test_pre_path),on='Filename')
         test_pre_data["result"]=test_pre_data["id"]==test_pre_data["pre_id"]
-        test_pre_data_0=test_pre_data[test_pre_data["result"]==False]
-        test_pre_data_1=test_pre_data[test_pre_data["result"]==True]
+        
+        test_group_p_1=test_pre_data.groupby("id")[self.target_attributions].mean()
+        test_group_p_0=1-test_group_p_1
+        
+        test_maad_content=test_pre_data[self.target_attributions]
+        test_pre_content=test_pre_data["result"].values
+        
+        result_1=test_pre_content.reshape(test_pre_content.shape[0],1)*test_maad_content
+        result_1.insert(0,"id",test_pre_data["id"])
+        result_1_groupby=result_1.groupby("id")[self.target_attributions]
+        acc_1=(result_1_groupby.mean()/test_group_p_1).mean()
+        
+        result_0=test_pre_content.reshape(test_pre_content.shape[0],1)*(1-test_maad_content)
+        result_0.insert(0,"id",test_pre_data["id"])
+        result_0_groupby=result_0.groupby("id")[self.target_attributions]
+        acc_0=(result_0_groupby.mean()/test_group_p_0).mean()
+        
+        score_dict={}
+        for gn,attrlist in self.group_attr.items():
+            if len(attrlist)==1:
+                score_dict[gn]=np.array([acc_1[attrlist[0]],acc_0[attrlist[0]]]).std()
+            else:
+                score_np=acc_1[attrlist].values
+                score_dict[gn]=score_np.std()
+        return score_dict
 
-        if(self.group_attr==None):
-            # single attritbutes
-            return 
-        else:
-            groupnames=self.group_attr.keys()
-            scores={}
-            for groupname in groupnames:
-                attr_names=self.group_attr[groupname]
-                
-                if(len(attr_names)>=1):
-                    test_pre_group_0=test_pre_data_0.groupby(['pre_id'])[attr_names]
-                    y0=test_pre_group_0.sum()/test_pre_group_0.count()-(test_pre_group_0.count()-test_pre_group_0.sum())/test_pre_group_0.count()
 
-                    test_pre_group_1=test_pre_data_1.groupby(['pre_id'])[attr_names]
-                    y1=test_pre_group_1.sum()/test_pre_group_1.count()-(test_pre_group_1.count()-test_pre_group_1.sum())/test_pre_group_1.count()
-
-                    scores[groupname]=(abs(y1.mean())+abs(y0.mean()))/2
-
-
-
-                
+    def plot_result(self,result,filename=""):
+        plt.figure(figsize=(40, 40))
+        font = {
+            'weight': 'normal',
+            'size': 20
+        }
+        plt.xlabel(type, font)
+        # if type=="multi":
+        #     xlabel=self.group_attr.keys()
+        # else:
+        #     xlabel=self.target_attributions
+        plt.plot(result.values(), result.keys(), linewidth=3, marker='o', markersize=15)
+        plt.yticks(size=25)
+        plt.xticks(size=15)
+        plt.savefig(filename+"_"+'groupeo_vggface2.png')
+        plt.show()
+        
+    def plot_bar_result(self,result,filename=""):
+        plt.figure(figsize=(60, 50))
+        plt.bar(result.keys(), result.values())
+        plt.ylabel("EO",size=40)
+        
+        plt.xlabel("Attributes",size=40)
+        plt.yticks(size=40)
+        plt.xticks(size=35,rotation=60)
+        plt.savefig("indivisual_bar_"+filename+'.png')
+        plt.show()

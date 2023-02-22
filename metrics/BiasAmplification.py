@@ -89,7 +89,10 @@ class BiasAm():
 
     def multi_ba(self,test_pre_path):
         test_pre_data=pd.read_csv(test_pre_path)
-        test_pre_data=self.maad.merge(test_pre_data,on='Filename')
+        test_pre_data=test_pre_data.merge(self.test_data,on="Filename")
+        test_pre_data=test_pre_data[test_pre_data["id"]==test_pre_data["pre_id"]].drop("id",axis=1)
+        # test_pre_data=(test_pre_data[test_pre_data["id"]==test_pre_data["pre_id"]]).drop("id",axis=1)
+        # test_pre_data=self.maad.merge(test_pre_data,on='Filename')
 
         groupnames=self.group_attr.keys()
 
@@ -104,26 +107,26 @@ class BiasAm():
                 propotion=propotion/2
 
             if(len(attr_names)<=1):
-                pat=train_group.sum()/train_group.count()
+                pat=train_group.mean()
                 yat=pat.copy()
                 yat[yat>propotion]=1
                 yat[yat<=propotion]=0
-                pat_hat=test_pre_group.sum()/test_pre_group.count()
+                pat_hat=test_pre_group.mean()
                 result=(pat_hat-pat)*yat
-                result=result.dropna(axis=0,how='all')
-                # result_table=pd.DataFrame(result.sum(axis=0)/result.shape[0])
-                ba_score_1=result.sum(axis=0)/result.shape[0]
-
-                # pat=(train_group.count()-train_group.sum())/train_group.count()
-                # yat=pat.copy()
-                # yat[yat>propotion]=1
-                # yat[yat<=propotion]=0
-                # pat_hat=(test_pre_group.count()-test_pre_group.sum())/test_pre_group.count()
-                # result=(pat_hat-pat)*yat
-                # result=result.dropna(axis=0,how='all')
-                # ba_score_2=result.sum(axis=0)/result.shape[0]
-                # scores[groupname]=(ba_score_1+ba_score_2).values[0]
-                scores[groupname]=ba_score_1
+                ba_score_1=result.mean()
+                
+                # pat_0=1-pat
+                # yat_0=pat_0.copy()
+                # yat_0[yat_0>propotion]=1
+                # yat_0[yat_0<=propotion]=0
+                # pat_hat_0=1-pat_hat
+                # result_0=(pat_hat_0-pat_0)*yat_0
+                # ba_score_0=result_0.mean()
+                
+                # scores[groupname]=(ba_score_1+ba_score_0).values[0]
+                scores[groupname]=ba_score_1.values[0]
+                
+                
             else:
                 pat=train_group.sum()/train_group.count()
                 yat=pat.copy()
@@ -131,18 +134,19 @@ class BiasAm():
                 yat[yat<=propotion]=0
                 pat_hat=test_pre_group.sum()/test_pre_group.count()
                 result=(pat_hat-pat)*yat
-                result=result.dropna(axis=0,how='all')
+                # result=result.dropna(axis=0,how='all')
                 # result_table=pd.DataFrame(result.sum(axis=0)/result.shape[0])
-                ba_score=result.sum(axis=0)/result.shape[0]
-                scores[groupname]=ba_score.values.sum()
+                # ba_score=result.sum(axis=0)/result.shape[0]
+                # ba_score=result.mean()
+                scores[groupname]=result.mean().values.sum()
 
         return scores
 
     def multi_dba(self,test_pre_path):
-        print("multi-group is working")
-        
+        # print("multi-group is working")
         test_pre_data=pd.read_csv(test_pre_path)
-        test_pre_data=self.maad.merge(test_pre_data,on='Filename')
+        test_pre_data=test_pre_data.merge(self.test_data,on="Filename")
+        test_pre_data=test_pre_data[test_pre_data["id"]==test_pre_data["pre_id"]].drop("id",axis=1)
 
         groupnames=self.group_attr.keys()
 
@@ -169,21 +173,8 @@ class BiasAm():
                 delta=p_haty_a-p_y_a
                 result=y_at*delta-(1-y_at)*delta
                 ba_score_1=result.sum(axis=0)/(len(test_pre_group))
-                scores[groupname]=ba_score_1
+                scores[groupname]=ba_score_1[0]
 
-                # p_at=(train_group.count()-train_group.sum())/train_data.shape[0]
-                # p_a=((train_data.shape[0]-train_data.sum())/train_data.shape[0]).values
-                # p_t=(train_group.count()/train_data.shape[0]).values[:,0]
-                # y_at=p_at.values-p_t.reshape(p_t.shape[0],1).dot(p_a.T.reshape(1,p_a.shape[0]))
-                # y_at[y_at>0]=1
-                # y_at[y_at<=0]=0
-                # p_haty_a=((test_pre_group.count()-test_pre_group.sum())/test_pre_group.sum().sum()).values
-                # p_y_a=((train_group.count()-train_group.sum())/train_data.sum()).values
-                # delta=p_haty_a-p_y_a
-                # result=y_at*delta-(1-y_at)*delta
-                # ba_score_2=result.sum(axis=0)/(len(test_pre_group))
-
-                # scores[groupname]=((ba_score_1+ba_score_2)/2)
             else:
                 p_at=train_group.sum()/train_data.shape[0]
                 p_a=(train_data.sum()/train_data.shape[0]).values
@@ -196,8 +187,24 @@ class BiasAm():
                 delta=p_haty_a-p_y_a
                 result=y_at*delta-(1-y_at)*delta
                 # result_table=pd.DataFrame(result.sum(axis=0)/result.shape[0])
-                ba_score=result.sum(axis=0)/result.shape[0]
-                scores[groupname]=ba_score.mean()
+                # ba_score=result.sum(axis=0)/result.shape[0]
+                scores[groupname]=result.mean().sum()
 
         return scores
-            
+    
+    def plot_bar_result(self,result,filename="",isBA=True):
+        plt.figure(figsize=(60, 50))
+        plt.bar(result.keys(), result.values())
+        
+        nametype=""
+        if isBA:
+            plt.ylabel("BA",size=40)
+            nametype="BA"
+        else:
+            plt.ylabel("DBA",size=40)
+            nametype="DBA"
+        plt.xlabel("Attributes",size=40)
+        plt.yticks(size=40)
+        plt.xticks(size=35,rotation=60)
+        plt.savefig(nametype+"_bar_"+filename+'.png')
+        plt.show()
