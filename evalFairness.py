@@ -1,5 +1,6 @@
 from metrics.BiasAmplification import BiasAm
 from metrics.groupbias import groupFairness as gb
+from metrics.individual import indivisualFairness as ind
 import numpy as np
 import pandas as pd
 import argparse
@@ -10,9 +11,10 @@ def makeargs():
     parse.add_argument('--maad_path',type=str,default='/exdata/data/vggface2/maad_id.csv')
     parse.add_argument('--train_csv',type=str,default='/exdata/data/vggface2/train_id_sample.csv')
     parse.add_argument('--test_csv',type=str,default='/exdata/data/vggface2/test_id_sample.csv')
-    parse.add_argument('--test_pre_csv',type=str,default='data/test_pre_id.csv')
+    parse.add_argument('--test_pre_csv',type=str,default='/home/lsf/桌面/lijia/face-recognition/data/senet_pre.csv')
     args=parse.parse_args()
     return args
+
 def main():
     args=makeargs()
     target_attr=['Male','Young', 'Middle_Aged', 'Senior','Asian','White','Black','Rosy_Cheeks',
@@ -51,18 +53,29 @@ def main():
     'Wearing_Lipstick': ['Wearing_Lipstick'],
     'Attractive': ['Attractive']}
     
+    backbone_name="senet"
     # ba & dbana
-    # metric=BiasAm(args.maad_path,args.train_csv,args.test_csv,target_attribution=target_attr)
-    # metric.update_group(feature_groups)
-    # result1=metric.multi_ba(args.test_pre_csv)
-    # metric.plot_result(result1,type="ba")
-    # result2=metric.multi_dba(args.test_pre_csv)
-    # metric.plot_result(result2,type="dba")
+    metric=BiasAm(args.maad_path,args.train_csv,args.test_csv,target_attribution=target_attr)
+    metric.update_group(feature_groups)
+    result1=metric.multi_ba(args.test_pre_csv)
+    # print(result1)
+    metric.plot_bar_result(result1,backbone_name)
+    result2=metric.multi_dba(args.test_pre_csv)
+    # print(result2)
+    metric.plot_bar_result(result2,backbone_name,False)
 
-    # eo & eodds
+    # groupbias
     metric_gb=gb(args.maad_path,args.test_csv,target_attribution=target_attr)
     metric_gb.update_group(feature_groups)
     result=metric_gb.GroupMetric(args.test_pre_csv)
-
-
+    # print(result)
+    metric_gb.plot_bar_result(result,backbone_name)
+    
+    # individual eo
+    metric_in=ind(args.maad_path,args.test_csv,target_attribution=target_attr)
+    metric_in.update_group(feature_groups)
+    result=metric_in.EqualOppotunity(args.test_pre_csv)
+    metric_in.plot_bar_result(result,backbone_name)
+    
+    
 main()

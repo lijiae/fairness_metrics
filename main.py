@@ -30,15 +30,15 @@ def makeargs():
     args=parse.parse_args()
     return args
 
-def loadimage(args):
-    train_csv=pd.read_csv(args.train_csv)
-    dataset=imagedataset(args.image_dir,train_csv)
-    train_size=int(0.8*len(dataset))
-    test_size=len(dataset)-train_size
-    train_dataset,test_dataset=torch.utils.data.random_split(dataset,[train_size,test_size])
-    train_dl=DataLoader(train_dataset,args.batch_size)
-    test_dl=DataLoader(test_dataset,args.batch_size)
-    return train_dl,test_dl
+# def loadimage(args):
+#     train_csv=pd.read_csv(args.train_csv)
+#     dataset=imagedataset(args.image_dir,train_csv)
+#     train_size=int(0.8*len(dataset))
+#     test_size=len(dataset)-train_size
+#     train_dataset,test_dataset=torch.utils.data.random_split(dataset,[train_size,test_size])
+#     train_dl=DataLoader(train_dataset,args.batch_size)
+#     test_dl=DataLoader(test_dataset,args.batch_size)
+#     return train_dl,test_dl
 
 def loaddata(args):
     train_csv=pd.read_csv(args.train_csv)
