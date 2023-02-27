@@ -14,7 +14,6 @@ from torch.utils.data import DataLoader
 import os
 from data.imagedata import imagedataset
 
-
 def makeargs():
     parse=argparse.ArgumentParser()
     parse.add_argument('--image_dir',type=str,default="/exdata/data/train_align")

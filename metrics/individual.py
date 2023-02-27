@@ -16,7 +16,9 @@ class indivisualFairness():
                 'Big_Lips','Big_Nose','Pointy_Nose','Heavy_Makeup','Wearing_Hat','Wearing_Earrings',
                 'Wearing_Necktie','Wearing_Lipstick','No_Eyewear','Eyeglasses','Attractive']
 
-        maad=pd.read_csv(maad_path).drop('id',axis=1)
+        maad=pd.read_csv(maad_path)
+        if 'id' in maad.columns:
+            maad=maad.drop('id',axis=1)
         test_id=pd.read_csv(test_path)
 
         # self.maad=maad

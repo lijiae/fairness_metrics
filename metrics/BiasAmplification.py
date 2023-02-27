@@ -16,8 +16,10 @@ class BiasAm():
                 'Bags_Under_Eyes','Bushy_Eyebrows','Arched_Eyebrows','Mouth_Closed','Smiling',
                 'Big_Lips','Big_Nose','Pointy_Nose','Heavy_Makeup','Wearing_Hat','Wearing_Earrings',
                 'Wearing_Necktie','Wearing_Lipstick','No_Eyewear','Eyeglasses','Attractive']
-
-        maad=pd.read_csv(maad_path).drop('id',axis=1)
+            
+        maad=pd.read_csv(maad_path)
+        if 'id' in maad.columns:
+            maad=maad.drop('id',axis=1)
         train_id=pd.read_csv(train_path)
         test_id=pd.read_csv(test_path)
         self.maad=maad
@@ -142,7 +144,7 @@ class BiasAm():
 
         return scores
 
-    def multi_dba(self,test_pre_path):
+    def multi_dba(self,test_pre_path,amplify_factor=100):
         # print("multi-group is working")
         test_pre_data=pd.read_csv(test_pre_path)
         test_pre_data=test_pre_data.merge(self.test_data,on="Filename")
@@ -168,11 +170,11 @@ class BiasAm():
                 y_at=p_at.values-p_t.reshape(p_t.shape[0],1).dot(p_a.T.reshape(1,p_a.shape[0]))
                 y_at[y_at>0]=1
                 y_at[y_at<=0]=0
-                p_haty_a=(test_pre_group.sum()/test_pre_group.sum().sum()).values
-                p_y_a=(train_group.sum()/train_data.sum()).values
-                delta=p_haty_a-p_y_a
+                p_haty_a=test_pre_group.sum()/test_pre_group.sum().sum()
+                p_y_a=train_group.sum()/train_data.sum()
+                delta=(p_haty_a-p_y_a)
                 result=y_at*delta-(1-y_at)*delta
-                ba_score_1=result.sum(axis=0)/(len(test_pre_group))
+                ba_score_1=result.mean()
                 scores[groupname]=ba_score_1[0]
 
             else:
@@ -182,9 +184,9 @@ class BiasAm():
                 y_at=p_at.values-p_t.reshape(p_t.shape[0],1).dot(p_a.T.reshape(1,p_a.shape[0]))
                 y_at[y_at>0]=1
                 y_at[y_at<=0]=0
-                p_haty_a=(test_pre_group.sum()/test_pre_group.sum().sum()).values
-                p_y_a=(train_group.sum()/train_data.sum()).values
-                delta=p_haty_a-p_y_a
+                p_haty_a=test_pre_group.sum()/test_pre_group.sum().sum()
+                p_y_a=train_group.sum()/train_data.sum()
+                delta=(p_haty_a-p_y_a)
                 result=y_at*delta-(1-y_at)*delta
                 # result_table=pd.DataFrame(result.sum(axis=0)/result.shape[0])
                 # ba_score=result.sum(axis=0)/result.shape[0]
