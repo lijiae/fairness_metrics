@@ -13,7 +13,7 @@ from torchvision import datasets
 from torch.utils.data import DataLoader
 import torch.utils.tensorboard as tx
 import os
-# from data.imagedata import imagedataset
+from data.imagedata import imagedataset
 from utils.penalty import *
 from utils.getdata import *
 
@@ -31,20 +31,28 @@ def makeargs():
     args=parse.parse_args()
     return args
 
-# def loaddata(args):
-#     train_csv=pd.read_csv(args.train_csv)
-#     test_csv=pd.read_csv(args.test_csv)
-#     train_dataset=imagedataset(args.image_dir,train_csv)
-#     test_dataset=imagedataset(args.image_dir,test_csv)
-#     train_dl=DataLoader(train_dataset,args.batch_size)
-#     test_dl=DataLoader(test_dataset,args.batch_size)
-#     return train_dl,test_dl
+def loaddata(args):
+    train_csv=pd.read_csv(args.train_csv)
+    test_csv=pd.read_csv(args.test_csv)
+    train_dataset=imagedataset(args.image_dir,train_csv)
+    test_dataset=imagedataset(args.image_dir,test_csv)
+    train_dl=DataLoader(train_dataset,args.batch_size)
+    test_dl=DataLoader(test_dataset,args.batch_size)
+    return train_dl,test_dl
 def train(train_dl,fr_model,fac_model,device,optimizer,):
     loss=0
     timelosses=0
     for d in tqdm(train_dl):
         y=fr_model(d[0].to(device))
         loss1=XE(y,d[1].to(device))
+
+        race_pre=torch.argmax(fac_model(d[0].to(device)))
+
+
+
         optimizer.zero_grad()
 
-train_dl
+attrlist=["Asian","Black","White"]
+args=makeargs()
+train_dl,test_dl=loaddata(args)
+
