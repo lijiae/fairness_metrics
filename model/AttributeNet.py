@@ -210,7 +210,7 @@ class AttributeNet(nn.Module):
     @Author: Ruoyu Chen
     """
     def __init__(self, 
-        pretrained = "/home/lsf/桌面/MaskFaceGAN/models/vgg_attribute_classifier/AttributeNet.pkl"):
+        pretrained = "/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl"):
         super().__init__()
         self.img_size = 224
         self.model = ResNet(Bottleneck, [3, 4, 6, 3])

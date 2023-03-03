@@ -210,3 +210,4 @@ class BiasAm():
         plt.xticks(size=35,rotation=60)
         plt.savefig(nametype+"_bar_"+filename+'.png')
         plt.show()
+        
