@@ -34,6 +34,8 @@ class image_attr_name(Dataset):
 
     def __getitem__(self, item):
         imgname=self.namelist[item]
+        if not os.path.exists(os.path.join(self.dir,imgname)):
+            print("not exist for path{}".format(os.path.join(self.dir,imgname)))
         data = torchvision.transforms.Resize(224)(Image.open(os.path.join(self.dir,imgname)))
         data = np.array(data, dtype=np.uint8)
         data = self.transform(data)
