@@ -54,12 +54,13 @@ def loaddata(args):
 def train(train_dl,fr_model,fac_model,optimizer,scheduler):
     loss=0
     losses=0
-    mu=0.1
+    mu=0.5
     interNum=200
+    fr_model.train()
 
     device='cuda' if torch.cuda.is_available() else 'cpu'
     for i_bz,d in enumerate(train_dl):
-        scheduler.step()
+        # scheduler.step()
         feature,y=fr_model(d[0].to(device))
         # y=fr_model.classifier(feature)
 
@@ -73,20 +74,21 @@ def train(train_dl,fr_model,fac_model,optimizer,scheduler):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        writer.add_scalar('mu0.1/train_loss',loss,i_bz)
-        writer.add_scalar('mu0.1/train_loss_xe',loss1,i_bz)
-        writer.add_scalar('mu0.1/train_loss_ingrouploss',loss2,i_bz)
+        writer.add_scalar('mu0.5/train_loss',loss,i_bz)
+        writer.add_scalar('mu0.5/train_loss_xe',loss1,i_bz)
+        writer.add_scalar('mu0.5/train_loss_ingrouploss',loss2,i_bz)
 
         if i_bz %interNum==0:
             pre_label=torch.argmax(y,dim=1)
             acc=(pre_label==d[1].to(device)).sum()/d[1].shape[0]
-            writer.add_scalar('mu0.1/train_losses',losses,int(i_bz/interNum))
+            writer.add_scalar('mu0.5/train_losses',losses,int(i_bz/interNum))
             losses=0
             print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz),len(train_dl),loss,acc))
 
 def test(test_dl,fr_model,epoch):
     device='cuda' if torch.cuda.is_available() else 'cpu'
     acc_total=0
+    fr_model.eval()
 
     for data,label,_ in test_dl:
         _,y=fr_model(data.to(device))
@@ -127,5 +129,5 @@ for i in range(5):
     print("start the {}th training:")
     train(train_dl,fr_model,fac_model,optimizer,scheduler)
     torch.save({'epoch': i, 'state_dict': fr_model.state_dict()},
-               os.path.join(args.save_path, str(i) + '_fcbaseline.pth.tar'))
+               os.path.join(args.save_path, str(i) + '_ingroup_baseline.pth.tar'))
     test(test_dl,fr_model,i)
