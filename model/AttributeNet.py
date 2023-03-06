@@ -306,6 +306,11 @@ class AttributeNet(nn.Module):
 
         return out
 
+    def get_cam(self,x):
+        if x.size(-1) != 224:
+            x = F.interpolate(x, size=(224, 224), mode='bilinear')
+        output = self.model(x)
+
 # model = AttributeNet()
 # x = torch.randn([8,3,224,224])
 # model.set_desired_attribute()

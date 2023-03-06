@@ -16,11 +16,9 @@ def InGroupPenalty(output,raceresult,length):
     criterion=nn.Sigmoid()
     for i in range(length):
         groupfeature=output[raceresult==i]
-        if len(groupfeature)<=1:
-            continue
-        group=groupfeature.var()
-        sum.append(group.item())
-
+        if len(groupfeature)>1:
+            group=groupfeature.var()
+            sum.append(group.item())
     score=criterion(torch.tensor(-mean(sum)))
 
     return score

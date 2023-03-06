@@ -30,14 +30,20 @@ def makeargs():
 
     # training setting
     parse.add_argument('--batch_size',type=int,default=32)
-    parse.add_argument('-lr',type=float,default=0.0001)
-    parse.add_argument('--epoch',type=int,default=20)
+    parse.add_argument('-lr',type=float,default=0.001)
     parse.add_argument('--warmup_step',type=int,default=0)
+    parse.add_argument('--epoch',type=int,default=5)
+    parse.add_argument('--mu',type=float,default=0.5)
+    parse.add_argument('--print_inter',type=int,default=2000)
+
+
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
     parse.add_argument('--idclass',type=int,default=8631)
     parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/classifier.pth.tar')
+    parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
+
 
     args=parse.parse_args()
     return args
@@ -55,14 +61,12 @@ def train(train_dl,fr_model,fac_model,optimizer,scheduler):
     loss=0
     losses=0
     mu=0.5
-    interNum=200
     fr_model.train()
 
     device='cuda' if torch.cuda.is_available() else 'cpu'
     for i_bz,d in enumerate(train_dl):
         # scheduler.step()
         feature,y=fr_model(d[0].to(device))
-        # y=fr_model.classifier(feature)
 
         loss1=XE(y,d[1].to(device))
 
@@ -78,10 +82,10 @@ def train(train_dl,fr_model,fac_model,optimizer,scheduler):
         writer.add_scalar('mu0.5/train_loss_xe',loss1,i_bz)
         writer.add_scalar('mu0.5/train_loss_ingrouploss',loss2,i_bz)
 
-        if i_bz %interNum==0:
+        if i_bz %args.print_inter==0:
             pre_label=torch.argmax(y,dim=1)
             acc=(pre_label==d[1].to(device)).sum()/d[1].shape[0]
-            writer.add_scalar('mu0.5/train_losses',losses,int(i_bz/interNum))
+            writer.add_scalar('mu0.5/train_losses',losses,int(i_bz/args.print_inter))
             losses=0
             print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz),len(train_dl),loss,acc))
 
@@ -110,7 +114,7 @@ if os.path.exists(args.ckpt_path):
 fr_model.to('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-fac_model=AttributeNet()
+fac_model=AttributeNet(args.attr_net_path)
 fac_model.set_idx_list(attrlist)
 fac_model.to('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -129,5 +133,5 @@ for i in range(5):
     print("start the {}th training:")
     train(train_dl,fr_model,fac_model,optimizer,scheduler)
     torch.save({'epoch': i, 'state_dict': fr_model.state_dict()},
-               os.path.join(args.save_path, str(i) + '_ingroup_baseline.pth.tar'))
+               os.path.join(args.save_path, str(i) + '_causalnet.pth.tar'))
     test(test_dl,fr_model,i)
