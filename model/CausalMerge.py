@@ -1,6 +1,10 @@
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from AttributeNet import  AttributeNet
 
 from model.resnet50 import *
 
@@ -20,6 +24,37 @@ class FR_model(nn.Module):
         ])
         self.average = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(2048, numclass)
+
+    def make_stages(self, in_ch, out_ch, down_samples, num_blocks):
+        layers = [BottleBlock(in_ch, out_ch, down_samples)]
+        for _ in range(num_blocks - 1):
+            layers.append(BottleBlock(out_ch, out_ch, down_sample=False))
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        output = self.stem(x)
+        output = self.stages(output)
+        output = self.average(output)
+        y = self.fc(output.reshape(output.shape[:2]))
+        return output,y
+
+
+class FR_model_causal(nn.Module):
+    def __init__(self,numclass):
+        super(FR_model_causal, self).__init__()
+        self.backbone=iresnet50_backbone()
+        self.fc = nn.Linear(2048, numclass)
+
+        self.fac_model=AttributeNet()
+
+    def init_model(self,attrlist,pretrained_path=''):
+        if os.path.exists(pretrained_path):
+            # load pretrained
+            state_dict=torch.load(pretrained_path)
+            self.backbone.load_state_dict(state_dict['state_dict'],False)
+            self.fc.load_state_dict(state_dict['state_dict'],False)
+
+
 
     def make_stages(self, in_ch, out_ch, down_samples, num_blocks):
         layers = [BottleBlock(in_ch, out_ch, down_samples)]

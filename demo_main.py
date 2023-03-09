@@ -80,7 +80,8 @@ def train(train_dl,fr_model,fac_model,optimizer,scheduler):
             f_x_c.append(getGradCam(feature,pred_class_logits,classid))
 
         cams=torch.stack(f_x_c,0)
-        new_feature=torch.dot(feature,cams)
+        weights_race=torch.mul(cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3)).sum(0)
+        update_feature=torch.mul(weights_race.unsqueeze(1),feature)
 
 
         loss1=XE(y,d[1].to(device))
