@@ -240,6 +240,11 @@ class AttributeNet(nn.Module):
         ]# currently Sideburns not support
         self.softmax = nn.Softmax(dim=1)
 
+        self.feature_maps=[]
+        def forward_hook(module,data_input,data_output):
+            self.feature_maps.append(data_output)
+        self.model.layer4.register_forward_hook(forward_hook)
+
     def init_model(self):
         """
         Init model params
@@ -272,6 +277,8 @@ class AttributeNet(nn.Module):
         self.desired_attribute += [attr]
 
     def forward(self, x):
+        self.feature_maps.clear()
+
         if x.size(-1) != 224:
             x = F.interpolate(x, size=(224, 224), mode='bilinear')
         output = self.model(x)
@@ -306,13 +313,23 @@ class AttributeNet(nn.Module):
 
         return out
 
-    def get_cam(self,x):
-        if x.size(-1) != 224:
-            x = F.interpolate(x, size=(224, 224), mode='bilinear')
-        output = self.model(x)
+    def get_cam(self):
+        return self.feature_maps[0]
 
-# model = AttributeNet()
-# x = torch.randn([8,3,224,224])
+    # def get_cam(self,x):
+    #     feature_list=[]
+    #
+    #     def forward_hook(module,data_input,data_output):
+    #         feature_list.append(data_output)
+    #     self.model.layer4.register_forward_hook(forward_hook)
+    #
+    #     _=self.model(x)
+    #
+    #     print(feature_list)
+
+model = AttributeNet()
+x = torch.randn([8,3,224,224])
 # model.set_desired_attribute()
 # output = model(x)
 # print(output.shape)
+# model.get_cam(x)
