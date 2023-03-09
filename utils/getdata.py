@@ -38,8 +38,8 @@ def CAM(feature, gradient):
         torch.max(cam, dim=-1, keepdim=True).values,
         dim=-2, keepdim=True).values
     cam /= cam_max
-
-    return cam
+    cam_new=torch.where(torch.isnan(cam),torch.zeros_like(cam),cam)
+    return cam_new
 def getGradCam(gt_features_input, pred_class_logits, classes):
     gt_features_input.retain_grad()
 

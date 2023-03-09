@@ -50,9 +50,9 @@ def main():
     testdl=loadallimage(args)
 
     #读取模型
-    # model=ResNet50(args.idclass)
-    # model.load_state_dict(torch.load("checkpoints/classifier.pth.tar")['state_dict'])
-    fr_model = FR_model(args.idclass)
+    model=ResNet50(args.idclass)
+    model.load_state_dict(torch.load("checkpoints/classifier.pth.tar")['state_dict'])
+    # fr_model = FR_model(args.idclass)
 
     model.eval()
     model.to(device)

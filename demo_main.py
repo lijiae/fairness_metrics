@@ -20,7 +20,7 @@ from utils.getdata import *
 
 from model.CausalMerge import FR_model
 from model.AttributeNet import AttributeNet
-from utils.interpretability.grad_cam import GradCAM
+
 def makeargs():
     parse=argparse.ArgumentParser()
     parse.add_argument('--image_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/train_align")
@@ -63,22 +63,28 @@ def train(train_dl,fr_model,fac_model,optimizer,scheduler):
     losses=0
     mu=0.5
     fr_model.train()
+    attrlen=len(attrlist)
 
     device='cuda' if torch.cuda.is_available() else 'cpu'
     for i_bz,d in enumerate(train_dl):
         # scheduler.step()
         feature,y=fr_model(d[0].to(device))
-
-        loss1=XE(y,d[1].to(device))
-
         pred_class_logits=fac_model(d[0].to(device))
         race_pre=torch.argmax(pred_class_logits,dim=1)
         feature=fac_model.get_cam()
-        #
-        # for i in getGradCam()
-        getGradCam(feature,pred_class_logits,race_pre)
-        loss2=InGroupPenalty(feature,race_pre,len(attrlist))
 
+        # cam is f,logit is c
+        f_x_c=[]
+        for i in range(attrlen):
+            classid=torch.ones_like(race_pre)*i
+            f_x_c.append(getGradCam(feature,pred_class_logits,classid))
+
+        cams=torch.stack(f_x_c,0)
+        new_feature=torch.dot(feature,cams)
+
+
+        loss1=XE(y,d[1].to(device))
+        loss2=InGroupPenalty(feature,race_pre,len(attrlist))
         loss=loss1+mu*loss2
         losses=losses+loss
         optimizer.zero_grad()
