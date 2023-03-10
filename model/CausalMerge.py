@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from AttributeNet import  AttributeNet
 
 from model.resnet50 import *
 
@@ -39,23 +38,11 @@ class FR_model(nn.Module):
         return output,y
 
 
-class FR_model_causal(nn.Module):
-    def __init__(self,numclass):
-        super(FR_model_causal, self).__init__()
-        self.backbone=iresnet50_backbone()
-        self.fc = nn.Linear(2048, numclass)
-
-        self.fac_model=AttributeNet()
-
-    def init_model(self,attrlist,pretrained_path=''):
-        if os.path.exists(pretrained_path):
-            # load pretrained
-            state_dict=torch.load(pretrained_path)
-            self.backbone.load_state_dict(state_dict['state_dict'],False)
-            self.fc.load_state_dict(state_dict['state_dict'],False)
-
-
-
+class FR_model_backbone(nn.Module):
+    def __init__(self,types='resnet'):
+        super(FR_model_backbone,self).__init__()
+        if 'resnet' in types:
+            self.backbone=iresnet50_backbone()
     def make_stages(self, in_ch, out_ch, down_samples, num_blocks):
         layers = [BottleBlock(in_ch, out_ch, down_samples)]
         for _ in range(num_blocks - 1):
@@ -63,8 +50,17 @@ class FR_model_causal(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        output = self.stem(x)
-        output = self.stages(output)
-        output = self.average(output)
-        y = self.fc(output.reshape(output.shape[:2]))
-        return output,y
+        feature=self.backbone(x)
+        return feature
+
+class FR_model_classifier(nn.Module):
+    def __init__(self,numclass):
+        super(FR_model_classifier,self).__init__()
+        self.average = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc=nn.Linear(2048, numclass)
+
+    def forward(self,feature):
+        feature = self.average(feature)
+        y=self.fc(feature.reshape(feature.shape[:2]))
+        return y
+

@@ -6,10 +6,11 @@ from data.imagedata import *
 
 def load_state_dict(model,dictpath):
     pre_ckpt=torch.load(dictpath)
-    # print(model)
-    # model.backbone.load_state_dict(pre_ckpt,False)
-    # model.classifier.load_state_dict(pre_ckpt.fc,False)
-    model.load_state_dict(pre_ckpt['state_dict'])
+    if isinstance(model,list):
+        model[0].backbone.load_state_dict(pre_ckpt['state_dict'],False)
+        model[1].load_state_dict(pre_ckpt['state_dict'],False)
+    else:
+        model.load_state_dict(pre_ckpt['state_dict'])
     return model
 
 

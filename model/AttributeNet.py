@@ -313,23 +313,9 @@ class AttributeNet(nn.Module):
 
         return out
 
-    def get_cam(self):
+    def get_feature_map(self):
         return self.feature_maps[0]
 
-    # def get_cam(self,x):
-    #     feature_list=[]
-    #
-    #     def forward_hook(module,data_input,data_output):
-    #         feature_list.append(data_output)
-    #     self.model.layer4.register_forward_hook(forward_hook)
-    #
-    #     _=self.model(x)
-    #
-    #     print(feature_list)
 
 model = AttributeNet()
 x = torch.randn([8,3,224,224])
-# model.set_desired_attribute()
-# output = model(x)
-# print(output.shape)
-# model.get_cam(x)

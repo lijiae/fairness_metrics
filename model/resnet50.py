@@ -46,7 +46,7 @@ class iresnet50_backbone(nn.Module):
             self.make_stages(512, 1024, True, 6),
             self.make_stages(1024, 2048, True, 3)
         ])
-        self.average = nn.AdaptiveAvgPool2d((1, 1))
+        # self.average = nn.AdaptiveAvgPool2d((1, 1))
         # self.fc = nn.Linear(2048, numclass)
 
     def make_stages(self, in_ch, out_ch, down_samples, num_blocks):
@@ -58,7 +58,7 @@ class iresnet50_backbone(nn.Module):
     def forward(self, x):
         output = self.stem(x)
         output = self.stages(output)
-        output = self.average(output)
+        # output = self.average(output)
         # output = self.fc(output.reshape(output.shape[:2]))
         return output
 
