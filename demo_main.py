@@ -30,7 +30,7 @@ def makeargs():
     parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample.csv')
 
     # training setting
-    parse.add_argument('--batch_size',type=int,default=32)
+    parse.add_argument('--batch_size',type=int,default=48)
     parse.add_argument('-lr',type=float,default=0.0001)
     parse.add_argument('--warmup_step',type=int,default=0)
     parse.add_argument('--epoch',type=int,default=5)
