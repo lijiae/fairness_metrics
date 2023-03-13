@@ -9,10 +9,10 @@ import argparse
 
 def makeargs():
     parse=argparse.ArgumentParser()
-    parse.add_argument('--maad_path',type=str,default='/media/lijia/系统/data/vggface2/maad_id.csv')
-    parse.add_argument('--train_csv',type=str,default='/media/lijia/系统/data/vggface2/train_id_sample.csv')
-    parse.add_argument('--test_csv',type=str,default='//media/lijia/系统/data/vggface2/test_id_sample.csv')
-    parse.add_argument('--test_pre_csv',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/data/senet_pre.csv')
+    parse.add_argument('--maad_path',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/maad_id.csv')
+    parse.add_argument('--train_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample.csv')
+    parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample.csv')
+    parse.add_argument('--test_pre_csv',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/data/causal_test_pre_id.csv')
     parse.add_argument('--dataset_type',type=str,choices=["celeba","vggface2"],default='vggface2')
     args=parse.parse_args()
     return args
@@ -90,32 +90,33 @@ def main():
         'Eyeglasses': ['Eyeglasses'],
         'Wearing_Lipstick': ['Wearing_Lipstick'],
         'Attractive': ['Attractive']}
-    backbone_name="celeba_sphere"
+    backbone_name="vggface2-causal"
     # ba & dbana
-    # metric=BiasAm(args.maad_path,args.train_csv,args.test_csv,target_attribution=target_attr)
-    # metric.update_group(feature_groups)
-    # result1=metric.multi_ba(args.test_pre_csv)
-    # # print(result1)
-    # metric.plot_bar_result(result1,backbone_name)
-    # result2=metric.multi_dba(args.test_pre_csv)
-    # # print(result2)
-    # metric.plot_bar_result(result2,backbone_name,False)
-    #
-    # # groupbias
-    # metric_gb=gb(args.maad_path,args.test_csv,target_attribution=target_attr)
-    # metric_gb.update_group(feature_groups)
-    # result=metric_gb.GroupMetric(args.test_pre_csv)
-    # # print(result)
-    # metric_gb.plot_bar_result(result,backbone_name)
-    #
-    # # individual eo
-    # metric_in=ind(args.maad_path,args.test_csv,target_attribution=target_attr)
-    # metric_in.update_group(feature_groups)
-    # result=metric_in.EqualOppotunity(args.test_pre_csv)
-    # metric_in.plot_bar_result(result,backbone_name)
+    metric=BiasAm(args.maad_path,args.train_csv,args.test_csv,target_attribution=target_attr)
+    metric.update_group(feature_groups)
+    result1=metric.multi_ba(args.test_pre_csv)
+    print(result1)
+    metric.plot_bar_result(result1,backbone_name)
+    result2=metric.multi_dba(args.test_pre_csv)
+    print(result2)
+    metric.plot_bar_result(result2,backbone_name,False)
 
-    metric_rf=rf(args.maad_path,args.train_csv,args.test_csv,target_attribution=target_attr)
-    metric_rf.update_group(feature_groups)
-    print(metric_rf.RF(args.test_pre_csv))
+    # groupbias
+    metric_gb=gb(args.maad_path,args.test_csv,target_attribution=target_attr)
+    metric_gb.update_group(feature_groups)
+    result=metric_gb.GroupMetric(args.test_pre_csv)
+    print(result)
+    metric_gb.plot_bar_result(result,backbone_name)
+
+    # individual eo
+    metric_in=ind(args.maad_path,args.test_csv,target_attribution=target_attr)
+    metric_in.update_group(feature_groups)
+    result=metric_in.EqualOppotunity(args.test_pre_csv)
+    print(result)
+    metric_in.plot_bar_result(result,backbone_name)
+
+    # metric_rf=rf(args.maad_path,args.train_csv,args.test_csv,target_attribution=target_attr)
+    # metric_rf.update_group(feature_groups)
+    # print(metric_rf.RF(args.test_pre_csv))
     
 main()

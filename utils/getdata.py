@@ -13,7 +13,13 @@ def load_state_dict(model,dictpath):
         model.load_state_dict(pre_ckpt['state_dict'])
     return model
 
-
+def load_state_dict_seperate(model,backbone_ckpt_path,classifier_path):
+    assert isinstance(model,list)
+    backbone_ckpt=torch.load(backbone_ckpt_path)
+    classifier_ckpt=torch.load(classifier_path)
+    model[0].load_state_dict(backbone_ckpt['state_dict'])
+    model[1].load_state_dict(classifier_ckpt['state_dict'])
+    return model
 def get_image_attr(dir,maadpath,idpath,attrlist,bz):
     maad=pd.read_csv(maadpath).drop(["id"],axis=1)
     idfile=pd.read_csv(idpath)

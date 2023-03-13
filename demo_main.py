@@ -186,3 +186,4 @@ for i in range(5):
         torch.save({'epoch': i, 'state_dict': fr_model.state_dict()},
                os.path.join(args.save_path, str(i) + '_causalnet.pth.tar'))
     # test(test_dl,fr_model,i)
+

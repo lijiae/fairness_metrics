@@ -73,6 +73,6 @@ def main():
         "Filename":result_names,
         "pre_id":result_pre
     })
-    data.to_csv('data/test_pre_id.csv')
+    data.to_csv('data/causal_test_pre_id.csv')
 
 main()
