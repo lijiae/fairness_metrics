@@ -36,15 +36,15 @@ def makeargs():
     parse.add_argument('--epoch',type=int,default=5)
     parse.add_argument('--mu',type=float,default=0.5)
     parse.add_argument('--print_inter',type=int,default=200)
-    parse.add_argument('--test_type',type=str,default='normal',choices=['causal','normal'])
+    parse.add_argument('--test_type',type=str,default='causal',choices=['causal','normal'])
     parse.add_argument('--ingroup_loss',type=bool,default=False)
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
     parse.add_argument('--idclass',type=int,default=8631)
-    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/resnet/0_resnet.pth.tar')
-    parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/1_causalnet_backbone.pth.tar')
-    parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/1_causalnet_classifier.pth.tar')
+    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/classifier.pth.tar')
+    parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/0_causalnet_backbone.pth.tar')
+    parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/0_causalnet_classifier.pth.tar')
 
 
     args=parse.parse_args()
@@ -85,7 +85,7 @@ def test(test_dl,fr_model):
         "Filename": result_names,
         "pre_id": result_pre
     })
-    data.to_csv('data/resnet_test_pre_id.csv')
+    data.to_csv('data/causal0_test_pre_id.csv')
     print("test result: {}".format(acc_total/len(test_dl.dataset)))
 
 
@@ -94,11 +94,13 @@ args=makeargs()
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
 if args.test_type=='normal':
+    print('load normal model...')
     fr_model=FR_model(args.idclass)
     if os.path.exists(args.ckpt_path):
         fr_model=load_state_dict(fr_model,args.ckpt_path)
     fr_model.to(device)
 else:
+    print('load causal model...')
     fr_model=[]
     fr_model.append(FR_model_backbone())
     fr_model.append(FR_model_classifier(args.idclass))

@@ -29,6 +29,15 @@ def get_image_attr(dir,maadpath,idpath,attrlist,bz):
     dl=DataLoader(dataset,bz)
     return dl
 
+def loaddata_celeba():
+    imgdir="/home/lijia/datasets/face/CelebA/Img/img_align_celeba"
+    train_df=pd.read_csv("/home/lijia/datasets/face/CelebA/Anno/celeba_train_id.csv")
+    namelist=list(train_df["Filename"])
+    idlist=list(train_df["id"])
+    train_dataset=CelebA(imgdir,namelist,idlist)
+    # dataloader=DataLoader(dataset,batch_size=32,shuffle=)
+    return DataLoader(train_dataset,batch_size=32,shuffle=True)
+
 def CAM(feature, gradient):
     assert len(feature.shape) == 4
     assert len(gradient.shape) == 4

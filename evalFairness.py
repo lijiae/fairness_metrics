@@ -12,7 +12,7 @@ def makeargs():
     parse.add_argument('--maad_path',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/maad_id.csv')
     parse.add_argument('--train_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample.csv')
     parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample.csv')
-    parse.add_argument('--test_pre_csv',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/data/causal_test_pre_id.csv')
+    parse.add_argument('--test_pre_csv',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/data/causal0_test_pre_id.csv')
     parse.add_argument('--dataset_type',type=str,choices=["celeba","vggface2"],default='vggface2')
     args=parse.parse_args()
     return args
@@ -90,7 +90,7 @@ def main():
         'Eyeglasses': ['Eyeglasses'],
         'Wearing_Lipstick': ['Wearing_Lipstick'],
         'Attractive': ['Attractive']}
-    backbone_name="vggface2-causal"
+    backbone_name="causal-1"
     # ba & dbana
     metric=BiasAm(args.maad_path,args.train_csv,args.test_csv,target_attribution=target_attr)
     metric.update_group(feature_groups)

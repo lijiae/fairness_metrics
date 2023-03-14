@@ -33,16 +33,16 @@ def makeargs():
     parse.add_argument('--batch_size',type=int,default=48)
     parse.add_argument('-lr',type=float,default=0.0001)
     parse.add_argument('--warmup_step',type=int,default=0)
-    parse.add_argument('--epoch',type=int,default=5)
+    parse.add_argument('--epoch',type=int,default=3)
     parse.add_argument('--mu',type=float,default=0.5)
     parse.add_argument('--print_inter',type=int,default=200)
-    parse.add_argument('--train_type',type=str,default='causal',choices=['causal','normal'])
+    parse.add_argument('--train_type',type=str,default='normal',choices=['causal','normal'])
     parse.add_argument('--ingroup_loss',type=bool,default=False)
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
     parse.add_argument('--idclass',type=int,default=8631)
-    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/classifier.pth.tar')
+    parse.add_argument('--ckpt_path',type=str,default='')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
 
 
@@ -89,6 +89,8 @@ def train(train_dl,fr_model,fac_model,optimizer,scheduler):
             cams=torch.stack(f_x_c,0) # 将list中cam特征合并
             weights_race=torch.mul(cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3)).sum(0) # 和logit加权
             feature=(torch.mul(weights_race.unsqueeze(1),feature)+feature)/2 # 更新新的feature
+
+
             y=fr_model[1](feature)
 
         if args.ingroup_loss:
