@@ -33,7 +33,7 @@ def makeargs():
     parse.add_argument('--batch_size',type=int,default=48)
     parse.add_argument('-lr',type=float,default=0.0001)
     parse.add_argument('--warmup_step',type=int,default=0)
-    parse.add_argument('--epoch',type=int,default=3)
+    parse.add_argument('--epoch',type=int,default=50)
     parse.add_argument('--mu',type=float,default=0.5)
     parse.add_argument('--print_inter',type=int,default=200)
     parse.add_argument('--train_type',type=str,default='normal',choices=['causal','normal'])
@@ -41,7 +41,8 @@ def makeargs():
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
-    parse.add_argument('--idclass',type=int,default=8631)
+    parse.add_argument('--dataset',type=str,default="celeba",choices=["celeba","vggface2"])
+    parse.add_argument('--idclass',type=int,default=10178)
     parse.add_argument('--ckpt_path',type=str,default='')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
 
@@ -58,7 +59,7 @@ def loaddata(args):
     test_dl=DataLoader(test_dataset,args.batch_size,shuffle=True)
     return train_dl,test_dl
 
-def train(train_dl,fr_model,fac_model,optimizer,scheduler):
+def train(train_dl,fr_model,optimizer,scheduler,fac_model=None):
     loss=0
     losses=0
     mu=1
@@ -68,15 +69,10 @@ def train(train_dl,fr_model,fac_model,optimizer,scheduler):
     else:
         fr_model.train()
     attrlen=len(attrlist)
-
     device='cuda' if torch.cuda.is_available() else 'cpu'
-    for i_bz,d in enumerate(tqdm(train_dl)):
-        # scheduler.step()
-        if args.train_type=='causal':
-            # feature,y=fr_model(d[0].to(device))
-            # pred_class_logits=fac_model(d[0].to(device))
-            # race_pre=torch.argmax(pred_class_logits,dim=1)
-            # feature=fac_model.get_cam()
+
+    if args.train_type == 'causal':
+        for i_bz,d in enumerate(tqdm(train_dl)):
             feature=fr_model[0](d[0].to(device))
             pred_class_logits=fac_model(d[0].to(device))
             race_pre=torch.argmax(pred_class_logits,dim=1)
@@ -90,30 +86,56 @@ def train(train_dl,fr_model,fac_model,optimizer,scheduler):
             weights_race=torch.mul(cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3)).sum(0) # 和logit加权
             feature=(torch.mul(weights_race.unsqueeze(1),feature)+feature)/2 # 更新新的feature
 
-
             y=fr_model[1](feature)
 
-        if args.ingroup_loss:
-            loss1=XE(y,d[1].to(device))
-            loss2=InGroupPenalty(feature,race_pre,len(attrlist))
-            loss=loss1+mu*loss2
-            writer.add_scalar('mu0.5/train_loss_ingrouploss',loss2)
-        else:
-            loss1=XE(y,d[1].to(device))
-            loss=loss1
-        losses = losses + loss
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        writer.add_scalar('mu0.5/train_loss',loss)
-        writer.add_scalar('mu0.5/train_loss_xe',loss1)
+            if args.ingroup_loss:
+                loss1=XE(y,d[1].to(device))
+                loss2=InGroupPenalty(feature,race_pre,len(attrlist))
+                loss=loss1+mu*loss2
+                writer.add_scalar('mu0.5/train_loss_ingrouploss',loss2)
+            else:
+                loss1=XE(y,d[1].to(device))
+                loss=loss1
+            losses = losses + loss
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            writer.add_scalar('mu0.5/train_loss',loss)
+            writer.add_scalar('mu0.5/train_loss_xe',loss1)
 
-        if i_bz %args.print_inter==0:
-            pre_label=torch.argmax(y,dim=1)
-            acc=(pre_label==d[1].to(device)).sum()/d[1].shape[0]
-            writer.add_scalar('mu0.5/train_losses',losses)
-            losses=0
-            print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz),len(train_dl),loss,acc))
+            if i_bz %args.print_inter==0:
+                pre_label=torch.argmax(y,dim=1)
+                acc=(pre_label==d[1].to(device)).sum()/d[1].shape[0]
+                writer.add_scalar('mu0.5/train_losses',losses)
+                losses=0
+                print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz),len(train_dl),loss,acc))
+    elif args.train_type == 'normal':
+        for i_bz,d in enumerate(tqdm(train_dl)):
+            feature,y=fr_model(d[0].to(device))
+
+            if args.ingroup_loss:
+                pred_class_logits = fac_model(d[0].to(device))
+                race_pre = torch.argmax(pred_class_logits, dim=1)
+                loss1=XE(y,d[1].to(device))
+                loss2=InGroupPenalty(feature,race_pre,len(attrlist))
+                loss=loss1+mu*loss2
+                writer.add_scalar('celeba-baseline/train_loss_ingrouploss',loss2)
+            else:
+                loss1=XE(y,d[1].to(device))
+                loss=loss1
+            losses = losses + loss
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            writer.add_scalar('celeba-baseline/train_loss',loss)
+            writer.add_scalar('celeba-baseline/train_loss_xe',loss1)
+
+            if i_bz %args.print_inter==0:
+                pre_label=torch.argmax(y,dim=1)
+                acc=(pre_label==d[1].to(device)).sum()/d[1].shape[0]
+                writer.add_scalar('celeba-baseline/train_losses',losses)
+                losses=0
+                print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz),len(train_dl),loss,acc))
 
 def test(test_dl,fr_model,epoch):
     device='cuda' if torch.cuda.is_available() else 'cpu'
@@ -152,12 +174,20 @@ else:
     for module in fr_model:
         module.to(device)
 
-fac_model=AttributeNet(args.attr_net_path)
-fac_model.set_idx_list(attrlist)
-fac_model.to('cuda' if torch.cuda.is_available() else 'cpu')
+
+if args.train_type=="normal" and not args.ingroup_loss:
+    fac_model=None
+    print("no use for face attributes classifier")
+else:
+    fac_model=AttributeNet(args.attr_net_path)
+    fac_model.set_idx_list(attrlist)
+    fac_model.to('cuda' if torch.cuda.is_available() else 'cpu')
 
 # dataset
-train_dl,test_dl=loaddata(args)
+if args.dataset=="celeba":
+    train_dl, test_dl = loaddata_celeba(args)
+else:
+    train_dl,test_dl=loaddata(args)
 
 # optimizer & scheduler
 if isinstance(fr_model,list):
@@ -173,12 +203,12 @@ else :
 if args.warmup_step>1:
     scheduler = WarmUpLR(optimizer, args.warmup_step)
 else:
-    scheduler=torch.optim.lr_scheduler.StepLR(optimizer,len(train_dl),0.5)
+    scheduler=torch.optim.lr_scheduler.StepLR(optimizer,10,0.1)
 
 # training
-for i in range(5):
-    print("start the {}th training:")
-    train(train_dl,fr_model,fac_model,optimizer,scheduler)
+for i in range(args.epoch):
+    print("start the {}th training:".format(str(i)))
+    train(train_dl,fr_model,optimizer,scheduler,fac_model=None)
     if isinstance(fr_model,list):
         torch.save({'epoch': i, 'state_dict': fr_model[0].state_dict()},
                os.path.join(args.save_path, str(i) + '_causalnet_backbone.pth.tar'))
