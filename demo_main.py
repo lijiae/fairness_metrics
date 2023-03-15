@@ -31,7 +31,7 @@ def makeargs():
 
     # training setting
     parse.add_argument('--batch_size',type=int,default=48)
-    parse.add_argument('-lr',type=float,default=0.0001)
+    parse.add_argument('-lr',type=float,default=0.01)
     parse.add_argument('--warmup_step',type=int,default=0)
     parse.add_argument('--epoch',type=int,default=50)
     parse.add_argument('--mu',type=float,default=0.5)
@@ -60,6 +60,7 @@ def loaddata(args):
     return train_dl,test_dl
 
 def train(train_dl,fr_model,optimizer,scheduler,fac_model=None):
+    scheduler.step()
     loss=0
     losses=0
     mu=1
