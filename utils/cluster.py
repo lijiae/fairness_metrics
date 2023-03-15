@@ -1,14 +1,13 @@
+import glob
+import os
+import cv2
+import matplotlib.pyplot as plt
 import pandas as pd
 import torch
-from torch.utils.data import Dataset,DataLoader
-import cv2
-import numpy as np
-import matplotlib.pyplot as plt
-from kmeans_pytorch import kmeans, kmeans_predict
+from utils.kmeans_pytorch.kmeans_pytorch import kmeans
 from sklearn.decomposition import PCA
-from sklearn import datasets
-import os
-import glob
+from torch.utils.data import Dataset, DataLoader
+
 
 class get_img_batch(Dataset):
     def __init__(self,imgdir):
@@ -43,7 +42,7 @@ def plot_blobs(x, cluster_ids_x):
 
 
 # config
-dir="/media/lijia/DATA/lijia/data/vggface2/average_face/race/2" #image dir
+dir="/media/lijia/DATA/lijia/data/vggface2/average_face/race/1" #image dir
 num_clusters = 4
 device='cuda' if torch.cuda.is_available() else 'cpu'
 bz=32
@@ -52,11 +51,27 @@ img_dataset=get_img_batch(dir)
 img_dataloader=DataLoader(img_dataset,bz)
 y=torch.tensor([])
 
-for i in range(2):
-    for img_each_batch in img_dataloader:
-        cluster_ids_x, cluster_centers = kmeans(
-            X=img_each_batch[0], num_clusters=num_clusters, distance='euclidean', device=device
-        )
+
+data=iter(iter(img_dataloader))
+cluster_ids_x, cluster_centers = kmeans(
+    X=next(data)[0], num_clusters=num_clusters, distance='euclidean',
+    device=device
+)
+# global cluster_centers
+
+
+iteration=20
+for _ in range(iteration*img_dataloader.__len__()-1):
+    try:
+        x=next(data)
+    except:
+        data=iter(img_dataloader)
+        x=next(data)
+    cluster_ids_x, cluster_centers = kmeans(
+        X=x[0], num_clusters=num_clusters, cluster_centers=cluster_centers, distance='euclidean',
+        device=device
+    )
+print(iteration*img_dataloader.__len__()-1)
 
 names=[]
 cluster_ids=[]
@@ -72,4 +87,4 @@ print(names)
 pd.DataFrame({
     "Filename":names,
     "cluster":cluster_ids
-}).to_csv("black_cluster.csv",index=None)
+}).to_csv("../data/cluster/4-white_cluster.csv", index=None)
