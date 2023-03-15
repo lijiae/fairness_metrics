@@ -29,14 +29,22 @@ def get_image_attr(dir,maadpath,idpath,attrlist,bz):
     dl=DataLoader(dataset,bz)
     return dl
 
+def loaddata(args):
+    train_csv=pd.read_csv(args.train_csv)
+    test_csv=pd.read_csv(args.test_csv)
+    train_dataset=imagedataset(args.image_dir,train_csv)
+    test_dataset=imagedataset(args.image_dir,test_csv)
+    train_dl=DataLoader(train_dataset,args.batch_size)
+    test_dl=DataLoader(test_dataset,args.batch_size)
+    return train_dl,test_dl
 def loaddata_celeba(args):
     imgdir="/home/lijia/datasets/face/CelebA/Img/img_align_celeba"
-    train_df=pd.read_csv("/home/lijia/datasets/face/CelebA/Anno/celeba_train_id.csv")
+    train_df=pd.read_csv("/media/lijia/DATA/lijia/data/CelebA/Anno/train_celeba_id.csv")
     namelist=list(train_df["Filename"])
     idlist=list(train_df["id"])
     train_dataset=CelebA(imgdir,namelist,idlist)
 
-    test_df=pd.read_csv("/home/lijia/datasets/face/CelebA/Anno/celeba_train_id.csv")
+    test_df=pd.read_csv("/media/lijia/DATA/lijia/data/CelebA/Anno/test_celeba_id.csv")
     test_dataset=CelebA(imgdir,list(test_df["Filename"]),list(test_df["id"]))
 
     # dataloader=DataLoader(dataset,batch_size=32,shuffle=)

@@ -36,28 +36,20 @@ def makeargs():
     parse.add_argument('--epoch',type=int,default=5)
     parse.add_argument('--mu',type=float,default=0.5)
     parse.add_argument('--print_inter',type=int,default=200)
-    parse.add_argument('--test_type',type=str,default='causal',choices=['causal','normal'])
+    parse.add_argument('--test_type',type=str,default='normal',choices=['causal','normal'])
     parse.add_argument('--ingroup_loss',type=bool,default=False)
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
-    parse.add_argument('--idclass',type=int,default=8631)
-    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/classifier.pth.tar')
+    parse.add_argument('--idclass',type=int,default=10178)
+    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/18_causalnet.pth.tar')
     parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/0_causalnet_backbone.pth.tar')
     parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/0_causalnet_classifier.pth.tar')
+    parse.add_argument('--dataset',type=str,default="celeba",choices=["celeba","vggface2"])
 
 
     args=parse.parse_args()
     return args
-
-def loaddata(args):
-    train_csv=pd.read_csv(args.train_csv)
-    test_csv=pd.read_csv(args.test_csv)
-    train_dataset=imagedataset(args.image_dir,train_csv)
-    test_dataset=imagedataset(args.image_dir,test_csv)
-    train_dl=DataLoader(train_dataset,args.batch_size,shuffle=True)
-    test_dl=DataLoader(test_dataset,args.batch_size,shuffle=True)
-    return train_dl,test_dl
 
 def test(test_dl,fr_model):
     device='cuda' if torch.cuda.is_available() else 'cpu'
@@ -85,7 +77,7 @@ def test(test_dl,fr_model):
         "Filename": result_names,
         "pre_id": result_pre
     })
-    data.to_csv('data/causal0_test_pre_id.csv')
+    data.to_csv('data/celeba_test_pre_id.csv',index=None)
     print("test result: {}".format(acc_total/len(test_dl.dataset)))
 
 
@@ -109,7 +101,10 @@ else:
         module.to(device)
 
 # dataset
-_,test_dl=loaddata(args)
+if args.dataset=="celeba":
+    _,test_dl=loaddata_celeba(args)
+else:
+    _,test_dl=loaddata(args)
 
 test(test_dl,fr_model)
 
