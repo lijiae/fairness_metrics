@@ -26,14 +26,14 @@ def makeargs():
     parse.add_argument('--image_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/train_align")
     parse.add_argument('--maad_path',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/maad_id.csv')
     parse.add_argument('--save_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup')
-    parse.add_argument('--train_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample.csv')
-    parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample.csv')
+    parse.add_argument('--train_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample_8615.csv')
+    parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv')
 
     # training setting
     parse.add_argument('--batch_size',type=int,default=48)
     parse.add_argument('-lr',type=float,default=0.01)
     parse.add_argument('--warmup_step',type=int,default=0)
-    parse.add_argument('--epoch',type=int,default=50)
+    parse.add_argument('--epoch',type=int,default=200)
     parse.add_argument('--mu',type=float,default=0.5)
     parse.add_argument('--print_inter',type=int,default=200)
     parse.add_argument('--train_type',type=str,default='normal',choices=['causal','normal'])
@@ -41,9 +41,9 @@ def makeargs():
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
-    parse.add_argument('--dataset',type=str,default="celeba",choices=["celeba","vggface2"])
-    parse.add_argument('--idclass',type=int,default=10178)
-    parse.add_argument('--ckpt_path',type=str,default='')
+    parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
+    parse.add_argument('--idclass',type=int,default=8615)
+    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/20_causalnet.pth.tar')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
 
 
@@ -152,7 +152,7 @@ def test(test_dl,fr_model,epoch):
         pre_label=torch.argmax(y,dim=1)
         acc_total+=(label.to(device)==pre_label).sum()
 
-    writer.add_scalar('mu0.5_loss/test',acc_total/len(test_dl.dataset),epoch)
+    writer.add_scalar('celeba_baseline/test',acc_total/len(test_dl.dataset),epoch)
     print("test result: {}".format(acc_total/len(test_dl.dataset)))
 
 
@@ -207,7 +207,7 @@ else:
     scheduler=torch.optim.lr_scheduler.StepLR(optimizer,10,0.1)
 
 # training
-for i in range(args.epoch):
+for i in range(20,args.epoch):
     print("start the {}th training:".format(str(i)))
     train(train_dl,fr_model,optimizer,scheduler,fac_model=None)
     if isinstance(fr_model,list):
@@ -218,5 +218,5 @@ for i in range(args.epoch):
     else:
         torch.save({'epoch': i, 'state_dict': fr_model.state_dict()},
                os.path.join(args.save_path, str(i) + '_causalnet.pth.tar'))
-    # test(test_dl,fr_model,i)
+    test(test_dl,fr_model,i)
 

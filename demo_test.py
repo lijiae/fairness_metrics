@@ -42,7 +42,7 @@ def makeargs():
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
     parse.add_argument('--idclass',type=int,default=10178)
-    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/18_causalnet.pth.tar')
+    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/celeba_baseline.pth.tar')
     parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/0_causalnet_backbone.pth.tar')
     parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/0_causalnet_classifier.pth.tar')
     parse.add_argument('--dataset',type=str,default="celeba",choices=["celeba","vggface2"])
