@@ -2,6 +2,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from data.imagedata import *
+from utils.prototype import Protos
 
 
 def load_state_dict(model,dictpath):
@@ -85,3 +86,12 @@ def getGradCam(gt_features_input, pred_class_logits, classes):
     gt_features_input.grad.zero_()  # 记得梯度清空，按你自己之前demo，我的模型参数清空没写在这里
 
     return gt_cam
+
+def load_proto(dir,model,names):
+    protos=Protos(dir,model)
+    concept_dict=protos.extract_feature()
+    concept_list=[]
+    assert len(names)==len(concept_dict.keys())
+    for name in names:
+        concept_list.append(concept_dict[name])
+    return torch.cat(concept_list)

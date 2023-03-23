@@ -4,7 +4,7 @@ import torchvision
 from PIL import Image
 import torch
 
-class protos():
+class Protos():
     # dir
     # --groups
     def __init__(self,dir,extractor):
@@ -21,13 +21,14 @@ class protos():
             filelist=[]
             for file in filenames:
                 data = torchvision.transforms.Resize((112, 112))(Image.open(os.path.join(self.dir,name,file)))
+                data = np.array(data, dtype=np.uint8)
                 img = data[:, :, ::-1]  # RGB -> BGR
                 img = img.astype(np.float32)
                 img -= mean_bgr
                 img = img.transpose(2, 0, 1)  # C x H x W
                 img = torch.from_numpy(img).float()
-                feature,_=self.extract_feature(img.to("cuda").squeeze(0))
+                feature=self.extractor(img.to("cuda").unsqueeze(0))
                 filelist.append(feature)
-            proto_dict[name]=filelist
+            proto_dict[name]=torch.cat(filelist)
         return proto_dict
 

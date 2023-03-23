@@ -25,7 +25,7 @@ def makeargs():
     parse=argparse.ArgumentParser()
     parse.add_argument('--image_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/train_align")
     parse.add_argument('--maad_path',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/maad_id.csv')
-    parse.add_argument('--save_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup')
+    parse.add_argument('--save_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/causal')
     parse.add_argument('--train_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample_8615.csv')
     parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv')
 
@@ -36,14 +36,14 @@ def makeargs():
     parse.add_argument('--epoch',type=int,default=200)
     parse.add_argument('--mu',type=float,default=0.5)
     parse.add_argument('--print_inter',type=int,default=200)
-    parse.add_argument('--train_type',type=str,default='normal',choices=['causal','normal'])
+    parse.add_argument('--train_type',type=str,default='causal',choices=['causal','normal'])
     parse.add_argument('--ingroup_loss',type=bool,default=False)
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
     parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
     parse.add_argument('--idclass',type=int,default=8615)
-    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/1_causalnet.pth.tar')
+    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/normal/5_vggface2_resnet.pth.tar')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
 
 
@@ -94,8 +94,11 @@ def train(train_dl,fr_model,optimizer,scheduler,fac_model=None):
                 f_x_c.append(getGradCam(get_feature_map,pred_class_logits,classid))
             cams=torch.stack(f_x_c,0) # 将list中cam特征合并
             weights_race=torch.mul(cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3)).sum(0) # 和logit加权
+            # weights_race=torch.mul(concept.unsqueeze(0).repeat([48, 1, 1, 1, 1]),
+            #           pred_class_logits.unsqueeze(2).unsqueeze(3).unsqueeze(4)).sum()
             # 前半部分改成原型学习的avg
-            feature=(torch.mul(weights_race.unsqueeze(1),feature)+feature)/2 # 更新新的feature
+            # feature=(torch.mul(weights_race.unsqueeze(1),concept)+feature)/2 # 更新新的feature
+            feature=(torch.mul(weights_race.unsqueeze(1),concept.unsqueeze(0).repeat([48, 1, 1, 1, 1]))+feature)/2 # 更新新的feature
 
             y=fr_model[1](feature)
 
@@ -162,7 +165,7 @@ def test(test_dl,fr_model,epoch):
         pre_label=torch.argmax(y,dim=1)
         acc_total+=(label.to(device)==pre_label).sum()
 
-    writer.add_scalar('celeba_baseline/test',acc_total/len(test_dl.dataset),epoch)
+    writer.add_scalar('celeba_baseline/test',acc_total/len(tes=Nonet_dl.dataset),epoch)
     print("test result: {}".format(acc_total/len(test_dl.dataset)))
 
 
@@ -198,8 +201,9 @@ else:
     fac_model=AttributeNet(args.attr_net_path)
     fac_model.set_idx_list(attrlist)
     fac_model.to('cuda' if torch.cuda.is_available() else 'cpu')
-
-# load prototype
+    # load prototype
+    dir = "/home/lijia/codes/202302/lijia/face-recognition/data/prototype/race"
+    concept = load_proto(dir, fr_model[0], attrlist)
 
 
 # dataset
@@ -227,7 +231,7 @@ else:
 # training
 for i in range(0,args.epoch):
     print("start the {}th training:".format(str(i)))
-    train(train_dl,fr_model,optimizer,scheduler,fac_model=None)
+    train(train_dl,fr_model,optimizer,scheduler,fac_model)
     scheduler.step()
     if isinstance(fr_model,list):
         torch.save({'epoch': i, 'state_dict': fr_model[0].state_dict()},

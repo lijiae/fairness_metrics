@@ -77,7 +77,7 @@ def test(test_dl,fr_model):
         "Filename": result_names,
         "pre_id": result_pre
     })
-    data.to_csv('data/celeba_test_pre_id.csv',index=None)
+    data.to_csv('test.csv',index=None)
     print("test result: {}".format(acc_total/len(test_dl.dataset)))
 
 
