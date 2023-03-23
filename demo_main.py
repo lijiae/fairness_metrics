@@ -79,12 +79,22 @@ def train(train_dl,fr_model,optimizer,scheduler,fac_model=None):
             race_pre=torch.argmax(pred_class_logits,dim=1)
             get_feature_map=fac_model.get_feature_map()
             # cam is f,logit is c
+            # f_x_c=[]
+            # for i in range(attrlen):
+            #     classid=torch.ones_like(race_pre)*i
+            #     f_x_c.append(getGradCam(get_feature_map,pred_class_logits,classid))
+            # cams=torch.stack(f_x_c,0) # 将list中cam特征合并
+            # weights_race=torch.mul(cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3)).sum(0) # 和logit加权
+            # feature=(torch.mul(weights_race.unsqueeze(1),feature)+feature)/2 # 更新新的feature
+
+            # f is avg+feature,logit is c
             f_x_c=[]
             for i in range(attrlen):
                 classid=torch.ones_like(race_pre)*i
                 f_x_c.append(getGradCam(get_feature_map,pred_class_logits,classid))
             cams=torch.stack(f_x_c,0) # 将list中cam特征合并
             weights_race=torch.mul(cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3)).sum(0) # 和logit加权
+            # 前半部分改成原型学习的avg
             feature=(torch.mul(weights_race.unsqueeze(1),feature)+feature)/2 # 更新新的feature
 
             y=fr_model[1](feature)
@@ -188,6 +198,9 @@ else:
     fac_model=AttributeNet(args.attr_net_path)
     fac_model.set_idx_list(attrlist)
     fac_model.to('cuda' if torch.cuda.is_available() else 'cpu')
+
+# load prototype
+
 
 # dataset
 if args.dataset=="celeba":
