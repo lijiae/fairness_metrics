@@ -43,7 +43,7 @@ def plot_blobs(x, cluster_ids_x):
 
 # config
 dir="/media/lijia/DATA/lijia/data/vggface2/average_face/race/2" #image dir
-num_clusters = 4
+num_clusters = 20
 device='cuda' if torch.cuda.is_available() else 'cpu'
 bz=32
 

@@ -26,8 +26,8 @@ def makeargs():
     parse.add_argument('--image_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/train_align")
     parse.add_argument('--maad_path',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/maad_id.csv')
     parse.add_argument('--save_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup')
-    parse.add_argument('--train_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample.csv')
-    parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample.csv')
+    parse.add_argument('--train_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample_8615.csv')
+    parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv')
 
     # training setting
     parse.add_argument('--batch_size',type=int,default=48)
@@ -41,11 +41,11 @@ def makeargs():
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
-    parse.add_argument('--idclass',type=int,default=10178)
-    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/celeba_baseline.pth.tar')
+    parse.add_argument('--idclass',type=int,default=8615)
+    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/2_baseline.pth.tar')
     parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/0_causalnet_backbone.pth.tar')
     parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/0_causalnet_classifier.pth.tar')
-    parse.add_argument('--dataset',type=str,default="celeba",choices=["celeba","vggface2"])
+    parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
 
 
     args=parse.parse_args()
@@ -84,6 +84,11 @@ def test(test_dl,fr_model):
 attrlist=["Asian","Black","White"]
 args=makeargs()
 device='cuda' if torch.cuda.is_available() else 'cpu'
+
+if args.dataset=="vggface2":
+    args.idclass=8615
+elif args.dataset=="celeba":
+    args.idclass=10178
 
 if args.test_type=='normal':
     print('load normal model...')

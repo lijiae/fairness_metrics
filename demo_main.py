@@ -31,7 +31,7 @@ def makeargs():
 
     # training setting
     parse.add_argument('--batch_size',type=int,default=48)
-    parse.add_argument('-lr',type=float,default=0.01)
+    parse.add_argument('-lr',type=float,default=0.0001)
     parse.add_argument('--warmup_step',type=int,default=0)
     parse.add_argument('--epoch',type=int,default=200)
     parse.add_argument('--mu',type=float,default=0.5)
@@ -43,7 +43,7 @@ def makeargs():
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
     parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
     parse.add_argument('--idclass',type=int,default=8615)
-    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/20_causalnet.pth.tar')
+    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/ingroup/1_causalnet.pth.tar')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
 
 
@@ -161,6 +161,11 @@ args=makeargs()
 writer=torch.utils.tensorboard.SummaryWriter('./log')
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
+if args.dataset=="vggface2":
+    args.idclass=8615
+elif args.dataset=="celeba":
+    args.idclass=10178
+
 if args.train_type=='normal':
     fr_model=FR_model(args.idclass)
     if os.path.exists(args.ckpt_path):
@@ -204,12 +209,13 @@ else :
 if args.warmup_step>1:
     scheduler = WarmUpLR(optimizer, args.warmup_step)
 else:
-    scheduler=torch.optim.lr_scheduler.StepLR(optimizer,10,0.1)
+    scheduler=torch.optim.lr_scheduler.StepLR(optimizer,2,0.1)
 
 # training
-for i in range(20,args.epoch):
+for i in range(0,args.epoch):
     print("start the {}th training:".format(str(i)))
     train(train_dl,fr_model,optimizer,scheduler,fac_model=None)
+    scheduler.step()
     if isinstance(fr_model,list):
         torch.save({'epoch': i, 'state_dict': fr_model[0].state_dict()},
                os.path.join(args.save_path, str(i) + '_causalnet_backbone.pth.tar'))
@@ -217,6 +223,6 @@ for i in range(20,args.epoch):
                os.path.join(args.save_path, str(i) + '_causalnet_classifier.pth.tar'))
     else:
         torch.save({'epoch': i, 'state_dict': fr_model.state_dict()},
-               os.path.join(args.save_path, str(i) + '_causalnet.pth.tar'))
+               os.path.join(args.save_path, str(i) + '_baseline.pth.tar'))
     test(test_dl,fr_model,i)
 
