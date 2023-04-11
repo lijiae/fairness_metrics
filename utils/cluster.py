@@ -7,6 +7,7 @@ import torch
 from utils.kmeans_pytorch.kmeans_pytorch import kmeans
 from sklearn.decomposition import PCA
 from torch.utils.data import Dataset, DataLoader
+import numpy as np
 
 
 class get_img_batch(Dataset):
@@ -42,8 +43,9 @@ def plot_blobs(x, cluster_ids_x):
 
 
 # config
-dir="/media/lijia/DATA/lijia/data/vggface2/average_face/race/2" #image dir
-num_clusters = 20
+dir="/media/lijia/DATA/lijia/data/vggface2/average_face/race/1" #image dir
+# 消融
+num_clusters = 10
 device='cuda' if torch.cuda.is_available() else 'cpu'
 bz=32
 
@@ -72,6 +74,7 @@ for _ in range(iteration*img_dataloader.__len__()-1):
         device=device
     )
 print(iteration*img_dataloader.__len__()-1)
+print(cluster_centers.shape)
 
 names=[]
 cluster_ids=[]
@@ -82,9 +85,12 @@ for img_each_batch in img_dataloader:
     cluster_ids+=cluster_ids_x.tolist()
     names+=list(img_each_batch[1])
 
+print(cluster_centers.shape)
 print(cluster_ids)
 print(names)
+
+np.save("../data/cluster/class/10-white_cluster.npy", cluster_centers.numpy())
 pd.DataFrame({
     "Filename":names,
     "cluster":cluster_ids
-}).to_csv("../data/cluster/4-black_cluster.csv", index=None)
+}).to_csv("../data/cluster/class/10-white_cluster.csv", index=None)

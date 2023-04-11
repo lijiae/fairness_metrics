@@ -39,7 +39,7 @@ def loaddata(args):
     test_dl=DataLoader(test_dataset,args.batch_size)
     return train_dl,test_dl
 def loaddata_celeba(args):
-    imgdir="/home/lijia/datasets/face/CelebA/Img/img_align_celeba"
+    imgdir="/media/lijia/DATA/lijia/data/CelebA/Img/img_align_celeba"
     train_df=pd.read_csv("/media/lijia/DATA/lijia/data/CelebA/Anno/train_celeba_id.csv")
     namelist=list(train_df["Filename"])
     idlist=list(train_df["id"])
@@ -49,7 +49,7 @@ def loaddata_celeba(args):
     test_dataset=CelebA(imgdir,list(test_df["Filename"]),list(test_df["id"]))
 
     # dataloader=DataLoader(dataset,batch_size=32,shuffle=)
-    return DataLoader(train_dataset,batch_size=args.epoch,shuffle=True),DataLoader(test_dataset,batch_size=args.epoch)
+    return DataLoader(train_dataset,batch_size=args.batch_size,shuffle=True),DataLoader(test_dataset,batch_size=args.batch_size)
 
 def CAM(feature, gradient):
     assert len(feature.shape) == 4

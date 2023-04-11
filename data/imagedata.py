@@ -4,6 +4,9 @@ import torch
 import torchvision
 from PIL import Image
 import os
+import glob
+import cv2
+
 
 class image_attr_name(Dataset):
     def __init__(self,dir,maadfile,attrlist,isName=False):
@@ -101,7 +104,7 @@ class CelebA(Dataset):
         imgname = self.namelist[index]
         id = self.idfile[index]
         label = torch.tensor(int(id)).long()
-        data = torchvision.transforms.Resize((112, 112))(Image.open(os.path.join(self.datadir, imgname)))
+        data = torchvision.transforms.Resize((224,224))(Image.open(os.path.join(self.datadir, imgname)))
         data = np.array(data, dtype=np.uint8)
         data = self.transform(data)
         return data, label, imgname
@@ -116,3 +119,25 @@ class CelebA(Dataset):
         img = img.transpose(2, 0, 1)  # C x H x W
         img = torch.from_numpy(img).float()
         return img
+
+
+class image_from_dir(Dataset):
+    def __init__(self,dir):
+        super(image_from_dir).__init__()
+        self.img_list = glob.glob(os.path.join(dir, '*.jpg'))
+
+    def __getitem__(self, item):
+        imgname=self.img_list[item]
+        data = torchvision.transforms.Resize((224,224))(Image.open(imgname))
+        # img=cv2.imread(imgname).reshape(-1)
+        return self.transform(data),imgname
+
+    def transform(self, img):
+        img = img[:, :, ::-1]  # RGB -> BGR
+        img = img.astype(np.float32)
+        img -= self.mean_bgr
+        img = img.transpose(2, 0, 1)  # C x H x W
+        img = torch.from_numpy(img).float()
+        return img
+    def __len__(self):
+        return len(self.img_list)
