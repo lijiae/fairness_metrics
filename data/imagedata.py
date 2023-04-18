@@ -124,13 +124,17 @@ class CelebA(Dataset):
 class image_from_dir(Dataset):
     def __init__(self,dir):
         super(image_from_dir).__init__()
+        self.mean_bgr = np.array([91.4953, 103.8827, 131.0912])
+
         self.img_list = glob.glob(os.path.join(dir, '*.jpg'))
 
     def __getitem__(self, item):
         imgname=self.img_list[item]
         data = torchvision.transforms.Resize((224,224))(Image.open(imgname))
+        data = np.array(data, dtype=np.uint8)
         # img=cv2.imread(imgname).reshape(-1)
         return self.transform(data),imgname
+        # return self.transform(data).reshape(-1),imgname
 
     def transform(self, img):
         img = img[:, :, ::-1]  # RGB -> BGR

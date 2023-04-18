@@ -2,7 +2,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from data.imagedata import *
-from utils.prototype import Protos
+from utils.prototype import *
 
 
 def load_state_dict(model,dictpath):
@@ -95,3 +95,14 @@ def load_proto(dir,model,names):
     for name in names:
         concept_list.append(concept_dict[name])
     return torch.cat(concept_list)
+
+def load_proto_cluster(dir,model,names,cluster_n):
+    protos=Cluster_Proto(dir,model,cluster_n)
+    concept_dict,prior_dict=protos.get_cluster_concept()
+    concept_list=[]
+    prior_list=[]
+    assert len(names)==len(concept_dict.keys())
+    for name in names:
+        concept_list.append(concept_dict[name].unsqueeze(0))
+        prior_list.append(torch.tensor(prior_dict[name]).unsqueeze(0))
+    return torch.cat(concept_list),torch.cat(prior_list)

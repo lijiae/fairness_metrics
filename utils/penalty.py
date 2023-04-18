@@ -23,6 +23,13 @@ def InGroupPenalty(output,raceresult,length):
 
     return score
 
+class Similarity():
+    def __init__(self):
+        self.cos_sim=nn.CosineSimilarity(-1)
+
+    def CosSim(self,input,matrix):
+        return self.cos_sim(input,matrix)
+
 class WarmUpLR(_LRScheduler):
     """warmup_training learning rate scheduler
     Args:

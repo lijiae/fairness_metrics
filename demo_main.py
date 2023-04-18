@@ -30,7 +30,7 @@ def makeargs():
     parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv')
 
     # training setting
-    parse.add_argument('--batch_size',type=int,default=32)
+    parse.add_argument('--batch_size',type=int,default=16)
     parse.add_argument('-lr',type=float,default=0.001)
     parse.add_argument('--warmup_step',type=int,default=0)
     parse.add_argument('--epoch',type=int,default=200)
@@ -49,9 +49,12 @@ def makeargs():
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
 
     # concept setting
-    parse.add_argument('--concept_dir',type=str,default="")
+    parse.add_argument('--concept_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/average_face/align")
     parse.add_argument('--cluster_num',type=int,default=10)
     parse.add_argument('--pre_proto',type=bool,default=False)
+    parse.add_argument('--save_concept',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/data/prototype/cluster_race/concept_A_B_W_feature.npy")
+    parse.add_argument('--save_prior',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/data/prototype/cluster_race/prior_A_B_W_feature.npy")
+
 
     args=parse.parse_args()
     return args
@@ -81,32 +84,57 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
     total_losses=0
     intercount=e*(len(train_dl))
 
-
     if args.train_type == 'causal':
         ch=2048
+        concept_n=args.cluster_num
+        sim_metric = Similarity()
         for i_bz,d in enumerate(tqdm(train_dl)):
-            feature=fr_model[0](d[0].to(device))
-            pred_class_logits=fac_model(d[0].to(device))
-            race_pre=torch.argmax(pred_class_logits,dim=1)
-            get_feature_map=fac_model.get_feature_map()
+            #1&2
+            # feature=fr_model[0](d[0].to(device))
+            # pred_class_logits=fac_model(d[0].to(device))
+            # race_pre=torch.argmax(pred_class_logits,dim=1)
+            # get_feature_map=fac_model.get_feature_map()
             # cam is f,logit is c
-            f_x_c=[]
+            # f_x_c=[]
             # for i in range(attrlen):
             #     classid=torch.ones_like(race_pre)*i
             #     f_x_c.append(getGradCam(get_feature_map,pred_class_logits,classid))
-            # cams=torch.stack(f_x_c,0) # 将list中cam特征合并
+            # cams=torch.stack(f_xsim_metric.cos_sim(d[0].to(device),concept)_c,0) # 将list中cam特征合并
             # weights_race=torch.mul(cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3)).sum(0) # 和logit加权
             # feature=(torch.mul(weights_race.unsqueeze(1),feature)+feature)/2 # 更新新的feature
 
             # f is avg+feature,logit is c
             # f_x_c=[]
-            for i in range(attrlen):
-                classid=torch.ones_like(race_pre)*i
-                f_x_c.append(getGradCam(get_feature_map,pred_class_logits,classid))
-            cams=torch.stack(f_x_c,0) # 将list中cam特征合并
-            concept_cams=torch.mul(cams.unsqueeze(2).repeat([1,1,ch,1,1]),concept.unsqueeze(1).repeat([1,cams.shape[1],1,1,1]))
-            feature=(feature-torch.mul(concept_cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3).unsqueeze(4)).sum(0))/2
+            # for i in range(attrlen):
+            #     classid=torch.ones_like(race_pre)*i
+            #     f_x_c.append(getGradCam(get_feature_map,pre            d_class_logits,classid))
+            # cams=torch.stack(f_x_c,0) # 将list中cam特征合并
+            # concept_cams=torch.mul(cams.unsqueeze(2).repeat([1,1,ch,1,1]),concept.unsqueeze(1).repeat([1,cams.shape[1],1,1,1]))
+            # feature=(feature-torch.mul(concept_cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3).unsqueeze(4)).sum(0))/2
+            # y=fr_model[1](feature)
+
+            # 3. cluster matrix
+            # f(x,c)
+            # f_x_c=[]00
+            # f_x_c.append(getGradCam(get_feature_map, pred_class_logits, race_pre))
+            feature_origin=fr_model[0](d[0].to(device))
+            pred_class_logits=fac_model(d[0].to(device))
+            sim=nn.CosineSimilarity(dim=-1)
+            race_pre=torch.argmax(pred_class_logits,dim=1)
+
+            # image concept
+            # get_feature_map=fac_model.get_feature_map()
+            # f_x_c=getGradCam(get_feature_map,pred_class_logits,race_pre)
+            # sim_matrix=sim(d[0].reshape(d[0].size()[0],-1).to(device).unsqueeze(1).repeat(1,concept_n,1),concept[race_pre].reshape(d[0].size()[0],concept_n,-1).to(device))
+
+            # feature_concept
+            sim_matrix=sim(feature_origin.reshape(feature_origin.size()[0],-1).to(device).unsqueeze(1).repeat(1,concept_n,1),concept[race_pre].reshape(feature_origin.size()[0],concept_n,-1).to(device))
+
+            sim_trans = sim_matrix - torch.min(sim_matrix, dim=1).values.unsqueeze(1)
+            sim_trans=sim_trans/sim_trans.sum(1).unsqueeze(1)# 归一化
+            feature=0.9*feature_origin+(sim_matrix.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)*concept[race_pre]).sum(1)*0.1
             y=fr_model[1](feature)
+
 
             if args.ingroup_loss:
                 loss1=XE(y,d[1].to(device))
@@ -228,11 +256,19 @@ else:
     fac_model.to('cuda' if torch.cuda.is_available() else 'cpu')
     # load prototype
     if args.pre_proto:
-        dir = "/home/lijia/codes/202302/lijia/face-recognition/data/prototype/race"
-        concept = load_proto(dir, fr_model[0], attrlist).detach()
+        concept_dir = "/home/lijia/codes/202302/lijia/face-recognition/data/prototype/race"
+        concept = load_proto(concept_dir, fr_model[0], attrlist).detach()
     else:
-        dir=args.concept_dir
-
+        if os.path.exists(args.save_concept) & os.path.exists(args.save_prior):
+            concept=np.load(args.save_concept)
+            prior=np.load(args.save_prior)
+        else:
+            concept_dir=args.concept_dir
+            concept,prior=load_proto_cluster(concept_dir,fr_model[0],attrlist,args.cluster_num)
+            np.save(args.save_concept,concept.detach().numpy())
+            np.save(args.save_prior,prior.detach().numpy())
+    concept=torch.from_numpy(concept).to(device)
+    prior=torch.from_numpy(prior).to(device)
 
 
 # dataset
