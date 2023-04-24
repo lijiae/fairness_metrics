@@ -141,8 +141,9 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
             feature_origin=fr_model[0](d[0].to(device))
             pred_class_logits=fac_model(d[0].to(device))
             race_pre=torch.argmax(pred_class_logits,dim=1)
-            image_level_context=Module_CIAM(feature_origin,race_pre)
+            image_level_context=Module_CIAM(feature_origin,concept[race_pre],prior[race_pre])
             feature=0.5*feature_origin+0.5*image_level_context
+            y=fr_model[1](feature)
 
 
             if args.ingroup_loss:
