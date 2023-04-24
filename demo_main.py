@@ -20,6 +20,8 @@ from utils.getdata import *
 
 from model.CausalMerge import FR_model,FR_model_classifier,FR_model_backbone
 from model.AttributeNet import AttributeNet
+from model.CIAM import CIAM
+
 
 def makeargs():
     parse=argparse.ArgumentParser()
@@ -49,7 +51,7 @@ def makeargs():
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
 
     # concept setting
-    parse.add_argument('--concept_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/average_face/align")
+    parse.add_argument('--concept_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/average_face/gender")
     parse.add_argument('--cluster_num',type=int,default=10)
     parse.add_argument('--pre_proto',type=bool,default=False)
     parse.add_argument('--save_concept',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/data/prototype/cluster_race/concept_A_B_W_feature.npy")
@@ -114,26 +116,33 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
             # y=fr_model[1](feature)
 
             # 3. cluster matrix
-            # f(x,c)
-            # f_x_c=[]00
-            # f_x_c.append(getGradCam(get_feature_map, pred_class_logits, race_pre))
+            # # f(x,c)
+            # # f_x_c=[]00
+            # # f_x_c.append(getGradCam(get_feature_map, pred_class_logits, race_pre))
+            # feature_origin=fr_model[0](d[0].to(device))
+            # pred_class_logits=fac_model(d[0].to(device))
+            # sim=nn.CosineSimilarity(dim=-1)
+            # race_pre=torch.argmax(pred_class_logits,dim=1)
+            #
+            # # image concept
+            # # get_feature_map=fac_model.get_feature_map()
+            # # f_x_c=getGradCam(get_feature_map,pred_class_logits,race_pre)
+            # # sim_matrix=sim(d[0].reshape(d[0].size()[0],-1).to(device).unsqueeze(1).repeat(1,concept_n,1),concept[race_pre].reshape(d[0].size()[0],concept_n,-1).to(device))
+            #
+            # # feature_concept
+            # sim_matrix=sim(feature_origin.reshape(feature_origin.size()[0],-1).to(device).unsqueeze(1).repeat(1,concept_n,1),concept[race_pre].reshape(feature_origin.size()[0],concept_n,-1).to(device))
+            # # sim_trans = sim_matrix - torch.min(sim_matrix, dim=1).values.unsqueeze(1)
+            # # sim_trans=sim_trans/sim_trans.sum(1).unsqueeze(1)# 归一化
+            # sim_trans=torch.nn.functional.softmax(sim_matrix,dim=1)
+            # feature=0.9*feature_origin+(sim_trans.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)*concept[race_pre]).sum(1)*0.1
+            # y=fr_model[1](feature)
+
+            # attention module
             feature_origin=fr_model[0](d[0].to(device))
             pred_class_logits=fac_model(d[0].to(device))
-            sim=nn.CosineSimilarity(dim=-1)
             race_pre=torch.argmax(pred_class_logits,dim=1)
-
-            # image concept
-            # get_feature_map=fac_model.get_feature_map()
-            # f_x_c=getGradCam(get_feature_map,pred_class_logits,race_pre)
-            # sim_matrix=sim(d[0].reshape(d[0].size()[0],-1).to(device).unsqueeze(1).repeat(1,concept_n,1),concept[race_pre].reshape(d[0].size()[0],concept_n,-1).to(device))
-
-            # feature_concept
-            sim_matrix=sim(feature_origin.reshape(feature_origin.size()[0],-1).to(device).unsqueeze(1).repeat(1,concept_n,1),concept[race_pre].reshape(feature_origin.size()[0],concept_n,-1).to(device))
-
-            sim_trans = sim_matrix - torch.min(sim_matrix, dim=1).values.unsqueeze(1)
-            sim_trans=sim_trans/sim_trans.sum(1).unsqueeze(1)# 归一化
-            feature=0.9*feature_origin+(sim_matrix.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)*concept[race_pre]).sum(1)*0.1
-            y=fr_model[1](feature)
+            image_level_context=Module_CIAM(feature_origin,race_pre)
+            feature=0.5*feature_origin+0.5*image_level_context
 
 
             if args.ingroup_loss:
@@ -219,7 +228,9 @@ def test(test_dl,fr_model,i):
     print("test result: {}".format(acc))
     writer.add_scalar('vggface2_causal/train_losses', acc, i)
 
-attrlist=["Asian","Black","White"]
+# attrlist=["Asian","Black","White"]
+attrlist=["Male","Female"]
+
 args=makeargs()
 writer=torch.utils.tensorboard.SummaryWriter('./log')
 device='cuda' if torch.cuda.is_available() else 'cpu'
@@ -269,6 +280,7 @@ else:
             np.save(args.save_prior,prior.detach().numpy())
     concept=torch.from_numpy(concept).to(device)
     prior=torch.from_numpy(prior).to(device)
+    Module_CIAM=CIAM(concept_n=args.cluster_num)
 
 
 # dataset

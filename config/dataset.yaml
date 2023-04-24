@@ -1,0 +1,15 @@
+# save your dataset config
+Celeba:
+  # basic
+  numclass: 10178
+
+  # path
+  path:
+    dir: /media/lijia/DATA/lijia/data/CelebA/Img/img_align_celeba
+    train_csv_path: /media/lijia/DATA/lijia/data/CelebA/Img/img_align_celeba
+    test_csv_path:
+
+  # train config
+  train:
+    bz: 32
+
