@@ -27,7 +27,7 @@ def makeargs():
     parse=argparse.ArgumentParser()
     parse.add_argument('--image_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/train_align")
     parse.add_argument('--maad_path',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/maad_id.csv')
-    parse.add_argument('--save_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/vggface2-causal-2')
+    parse.add_argument('--save_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/vggface2-method3')
     parse.add_argument('--train_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample_8615.csv')
     parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv')
 
@@ -39,7 +39,7 @@ def makeargs():
     parse.add_argument('--mu',type=float,default=0.5)
     parse.add_argument('--print_inter',type=int,default=200)
     parse.add_argument('--train_type',type=str,default='causal',choices=['causal','normal'])
-    parse.add_argument('--ingroup_loss',type=bool,default=False)
+    parse.add_argument('--ingroup_loss',type=bool,default=True)
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
@@ -145,10 +145,10 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
             feature=0.5*feature_origin+0.5*image_level_context
             y=fr_model[1](feature)
 
-
             if args.ingroup_loss:
                 loss1=XE(y,d[1].to(device))
-                loss2=InGroupPenalty(feature,race_pre,len(attrlist))
+                # loss2=InGroupPenalty(feature,race_pre,len(attrlist))
+                loss2=FairnessPenalty((torch.argmax(y,dim=1)==d[1].to(device)),race_pre,len(attrlist))
                 loss=loss1+mu*loss2
                 writer.add_scalar('mu0.5/train_loss_ingrouploss',loss2,intercount)
             else:
@@ -314,9 +314,9 @@ for i in range(0,args.epoch):
     scheduler.step()
     if isinstance(fr_model,list):
         torch.save({'epoch': i, 'state_dict': fr_model[0].state_dict()},
-               os.path.join(args.save_path,  'causalnet_backbone_celeba_{}.pth.tar'.format(str(i))))
+               os.path.join(args.save_path,  'method3_vggface2_attention_backbone_prior_{}.pth.tar'.format(str(i))))
         torch.save({'epoch': i, 'state_dict': fr_model[1].state_dict()},
-               os.path.join(args.save_path, 'causalnet_classifier_celeba_{}.pth.tar'.format(str(i))))
+               os.path.join(args.save_path, 'method3_vggface2_attention_classifier_prior_{}.pth.tar'.format(str(i))))
     else:
         torch.save({'epoch': i, 'state_dict': fr_model.state_dict()},
                os.path.join(args.save_path, str(i) + 'celeba_baseline.pth.tar'))

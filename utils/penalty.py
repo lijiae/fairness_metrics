@@ -20,8 +20,17 @@ def InGroupPenalty(output,raceresult,length):
             group=groupfeature.var()
             sum.append(group.item())
     score=criterion(torch.tensor(-mean(sum)))
-
     return score
+
+def FairnessPenalty(pre_result,race_pre,group_len):
+    sum=[]
+    # criterion=nn.Sigmoid()
+    for i in range(group_len):
+        group_result=pre_result[race_pre==i]
+        if len(group_result)>=1:
+            group_acc=(group_result.sum()/len(group_result)).item()
+            sum.append(group_acc)
+    return np.std(np.array(sum))
 
 class Similarity():
     def __init__(self):

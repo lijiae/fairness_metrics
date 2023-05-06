@@ -12,7 +12,7 @@ def makeargs():
     parse.add_argument('--maad_path',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/maad_id.csv')
     parse.add_argument('--train_csv',type=str,default="/media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample_8615.csv")
     parse.add_argument('--test_csv',type=str,default="/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv")
-    parse.add_argument('--test_pre_csv',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/3test.csv')
+    parse.add_argument('--test_pre_csv',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/data/result/caam_sex/caam_sex_result_test.csv')
     parse.add_argument('--dataset_type',type=str,choices=["celeba","vggface2"],default='vggface2')
     args=parse.parse_args()
     return args

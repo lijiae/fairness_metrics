@@ -20,6 +20,7 @@ from utils.getdata import *
 
 from model.CausalMerge import FR_model,FR_model_classifier,FR_model_backbone
 from model.AttributeNet import AttributeNet
+from model.CIAM import CIAM
 
 def makeargs():
     parse=argparse.ArgumentParser()
@@ -44,8 +45,8 @@ def makeargs():
     parse.add_argument('--train_type',type=str,default='causal',choices=['causal','normal'])
     parse.add_argument('--idclass',type=int,default=8615)
     parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/normal/5_vggface2_resnet.pth.tar')
-    parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/vggface2-causal-2/causalnet_backbone_celeba_0.pth.tar')
-    parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/vggface2-causal-2/causalnet_classifier_celeba_0.pth.tar')
+    parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/vggface2-method3/method3_vggface2_attention_backbone_prior_0.pth.tar')
+    parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/vggface2-method3/method3_vggface2_attention_classifier_prior_0.pth.tar')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
     parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
 
@@ -97,34 +98,17 @@ def test_demo(test_dl,fr_model,fac_model=None):
     device='cuda' if torch.cuda.is_available() else 'cpu'
 
     if args.train_type == 'causal':
-        ch=2048
-        for data, label, name in tqdm(test_dl):
-            feature=fr_model[0](data.to(device))
-            pred_class_logits=fac_model(data.to(device))
+        for d in tqdm(test_dl):
+            feature_origin=fr_model[0](d[0].to(device))
+            pred_class_logits=fac_model(d[0].to(device))
             race_pre=torch.argmax(pred_class_logits,dim=1)
-            get_feature_map=fac_model.get_feature_map()
-            # cam is f,logit is c
-            f_x_c=[]
-            # for i in range(attrlen):
-            #     classid=torch.ones_like(race_pre)*i
-            #     f_x_c.append(getGradCam(get_feature_map,pred_class_logits,classid))
-            # cams=torch.stack(f_x_c,0) # 将list中cam特征合并
-            # weights_race=torch.mul(cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3)).sum(0) # 和logit加权
-            # feature=(torch.mul(weights_race.unsqueeze(1),feature)+feature)/2 # 更新新的feature
-
-            # f is avg+feature,logit is c
-            # f_x_c=[]
-            for i in range(attrlen):
-                classid=torch.ones_like(race_pre)*i
-                f_x_c.append(getGradCam(get_feature_map,pred_class_logits,classid))
-            cams=torch.stack(f_x_c,0) # 将list中cam特征合并
-            concept_cams=torch.mul(cams.unsqueeze(2).repeat([1,1,ch,1,1]),concept.unsqueeze(1).repeat([1,cams.shape[1],1,1,1]))
-            feature=(feature+torch.mul(concept_cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3).unsqueeze(4)).sum(0))/2
+            image_level_context=Module_CIAM(feature_origin,concept[race_pre],prior[race_pre])
+            feature=0.5*feature_origin+0.5*image_level_context
             y=fr_model[1](feature)
             pre_label=torch.argmax(y,dim=1)
-            acc_total+=(label.to(device)==pre_label).sum()
+            acc_total+=(d[1].to(device)==pre_label).sum()
             result_pre+=pre_label.tolist()
-            result_names+=list(name)
+            result_names+=list(d[3])
     data = pd.DataFrame({
         "Filename": result_names,
         "pre_id": result_pre
@@ -165,9 +149,21 @@ else:
     fac_model.set_idx_list(attrlist)
     fac_model.to('cuda' if torch.cuda.is_available() else 'cpu')
     # load prototype
-    dir = "/home/lijia/codes/202302/lijia/face-recognition/data/prototype/race"
-    concept = load_proto(dir, fr_model[0], attrlist).detach()
-    # concept.grad.zero_()
+    if args.pre_proto:
+        concept_dir = "/home/lijia/codes/202302/lijia/face-recognition/data/prototype/race"
+        concept = load_proto(concept_dir, fr_model[0], attrlist).detach()
+    else:
+        if os.path.exists(args.save_concept) & os.path.exists(args.save_prior):
+            concept=np.load(args.save_concept)
+            prior=np.load(args.save_prior)
+        else:
+            concept_dir=args.concept_dir
+            concept,prior=load_proto_cluster(concept_dir,fr_model[0],attrlist,args.cluster_num)
+            np.save(args.save_concept,concept.detach().numpy())
+            np.save(args.save_prior,prior.detach().numpy())
+    concept=torch.from_numpy(concept).to(device)
+    prior=torch.from_numpy(prior).to(device)
+    Module_CIAM=CIAM(concept_n=args.cluster_num)
 
 # dataset
 if args.dataset=="celeba":
@@ -175,6 +171,6 @@ if args.dataset=="celeba":
 else:
     _,test_dl=loaddata(args)
 
-# test_demo(test_dl,fr_model,fac_model)
-test(test_dl,fr_model)
+test_demo(test_dl,fr_model,fac_model)
+# test(test_dl,fr_model)
 
