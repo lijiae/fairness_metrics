@@ -32,8 +32,8 @@ def makeargs():
     parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv')
 
     # training setting
-    parse.add_argument('--batch_size',type=int,default=32)
-    parse.add_argument('-lr',type=float,default=0.0001)
+    parse.add_argument('--batch_size',type=int,default=16)
+    parse.add_argument('-lr',type=float,default=0.00001)
     parse.add_argument('--warmup_step',type=int,default=0)
     parse.add_argument('--epoch',type=int,default=200)
     parse.add_argument('--mu',type=float,default=0.5)
@@ -45,7 +45,7 @@ def makeargs():
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
     parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
     parse.add_argument('--idclass',type=int,default=8615)
-    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/normal/7_vggface2_resnet.pth.tar')
+    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/normal/0_vggface2_resnet.pth.tar')
     parse.add_argument('--ckpt_path_backbone',type=str,default='')
     parse.add_argument('--ckpt_path_classifier',type=str,default='')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
@@ -72,10 +72,11 @@ def loaddata(args):
     return train_dl,test_dl
 
 def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
-    scheduler.step()
+    # scheduler.step()
     loss=0
     losses=0
     mu=1
+    critrtia=AngularPenaltySMLoss(2048,8615)
     if isinstance(fr_model,list):
         for module in fr_model:
             module.train()
@@ -87,11 +88,7 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
     intercount=e*(len(train_dl))
     for i_bz,d in enumerate(tqdm(train_dl)):
         feature= fr_model[0](d[0].to(device))
-        if 'softmax' in args.metric_type:
-            y=fr_model[1](feature)
-        else:
-            y=fr_model[1](feature,d[1].to(device))
-
+        y=fr_model[1](feature)
         if args.ingroup_loss:
             loss1=XE(y,d[1].to(device))
             pred_class_logits = fac_model(d[0].to(device))
@@ -100,7 +97,8 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
             loss2=FairnessPenalty((torch.argmax(y,dim=1)==d[1].to(device)),race_pre,len(attrlist))
             loss=loss1+mu*loss2
         else:
-            loss1=XE(y,d[1].to(device))
+            # loss1=XE(y,d[1].to(device))
+            loss1=critrtia.loss_caculate(y,d[1].to(device))
             loss=loss1
         losses = losses + loss
         optimizer.zero_grad()

@@ -59,18 +59,16 @@ class FR_model_classifier(nn.Module):
         super(FR_model_classifier,self).__init__()
         self.average = nn.AdaptiveAvgPool2d((1, 1))
         self.type=type
-        if 'softmax'in type:
-            self.fc=nn.Linear(2048, numclass)
-        elif 'arcface' in type:
-            self.fc=AngleLinear(2048,numclass)
-        elif 'cosface' in type:
-            self.fc=MarginCosineProduct(2048, numclass)
+        self.fc=nn.Linear(2048, numclass,bias=False)
 
     def forward(self,feature,label=None):
         feature = self.average(feature)
-        if 'softmax'in self.type:
+        if 'softmax' in self.type:
             y=self.fc(feature.reshape(feature.shape[:2]))
         else:
-            y=self.fc(feature.reshape(feature.shape[:2]),label)
+            for W in self.fc.parameters():
+                W = F.normalize(W, p=2, dim=1)
+            feature = F.normalize(feature, p=2, dim=1)
+            y=self.fc(feature.reshape(feature.shape[:2]))
         return y
 
