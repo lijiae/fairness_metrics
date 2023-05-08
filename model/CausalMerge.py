@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from classifier import *
+from model.classifier import *
 from model.resnet50 import *
 
 class FR_model(nn.Module):
@@ -58,6 +58,7 @@ class FR_model_classifier(nn.Module):
     def __init__(self,numclass,type='softmax'):
         super(FR_model_classifier,self).__init__()
         self.average = nn.AdaptiveAvgPool2d((1, 1))
+        self.type=type
         if 'softmax'in type:
             self.fc=nn.Linear(2048, numclass)
         elif 'arcface' in type:
@@ -65,8 +66,11 @@ class FR_model_classifier(nn.Module):
         elif 'cosface' in type:
             self.fc=MarginCosineProduct(2048, numclass)
 
-    def forward(self,feature):
+    def forward(self,feature,label=None):
         feature = self.average(feature)
-        y=self.fc(feature.reshape(feature.shape[:2]))
+        if 'softmax'in self.type:
+            y=self.fc(feature.reshape(feature.shape[:2]))
+        else:
+            y=self.fc(feature.reshape(feature.shape[:2]),label)
         return y
 

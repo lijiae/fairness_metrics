@@ -14,88 +14,207 @@ from torch.utils.data import DataLoader
 import torch.utils.tensorboard as tx
 import os
 from data.imagedata import imagedataset
+from utils.penalty import *
+from utils.getdata import *
+# from utils.gradcam_batch import GradFeature
+
+from model.CausalMerge import FR_model,FR_model_classifier,FR_model_backbone
+from model.AttributeNet import AttributeNet
+from model.CIAM import CIAM
 
 
 def makeargs():
     parse=argparse.ArgumentParser()
-    parse.add_argument('--image_dir',type=str,default="//exdata/data/train_align")
-    parse.add_argument('--maad_path',type=str,default='/exdata/data/maad_id.csv')
-    parse.add_argument('--save_path',type=str,default='checkpoints')
-    parse.add_argument('--train_csv',type=str,default='data/train_id_sample.csv')
-    parse.add_argument('--test_csv',type=str,default='data/test_id_sample.csv')
+    parse.add_argument('--image_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/train_align")
+    parse.add_argument('--maad_path',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/maad_id.csv')
+    parse.add_argument('--save_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline')
+    parse.add_argument('--train_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample_8615.csv')
+    parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv')
+
+    # training setting
     parse.add_argument('--batch_size',type=int,default=32)
-    parse.add_argument('-lr',type=float,default=0.01)
-    parse.add_argument('--epoch',type=int,default=20)
-    parse.add_argument('--idclass',type=int,default=8631)
+    parse.add_argument('-lr',type=float,default=0.0001)
+    parse.add_argument('--warmup_step',type=int,default=0)
+    parse.add_argument('--epoch',type=int,default=200)
+    parse.add_argument('--mu',type=float,default=0.5)
+    parse.add_argument('--print_inter',type=int,default=200)
+    parse.add_argument('--train_type',type=str,default='normal',choices=['causal','normal'])
+    parse.add_argument('--ingroup_loss',type=bool,default=False)
+
+    # model setting
+    parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
+    parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
+    parse.add_argument('--idclass',type=int,default=8615)
+    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/normal/7_vggface2_resnet.pth.tar')
+    parse.add_argument('--ckpt_path_backbone',type=str,default='')
+    parse.add_argument('--ckpt_path_classifier',type=str,default='')
+    parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
+    parse.add_argument('--metric_type',type=str,choices=['arcface','cosface','softmax'],default='arcface')
+
+    # concept setting
+    parse.add_argument('--concept_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/average_face/gender")
+    parse.add_argument('--cluster_num',type=int,default=5)
+    parse.add_argument('--pre_proto',type=bool,default=False)
+    parse.add_argument('--save_concept',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/data/prototype/cluster_race/concept_A_B_W_feature.npy")
+    parse.add_argument('--save_prior',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/data/prototype/cluster_race/prior_A_B_W_feature.npy")
+
+
     args=parse.parse_args()
     return args
-
-# def loadimage(args):
-#     train_csv=pd.read_csv(args.train_csv)
-#     dataset=imagedataset(args.image_dir,train_csv)
-#     train_size=int(0.8*len(dataset))
-#     test_size=len(dataset)-train_size
-#     train_dataset,test_dataset=torch.utils.data.random_split(dataset,[train_size,test_size])
-#     train_dl=DataLoader(train_dataset,args.batch_size)
-#     test_dl=DataLoader(test_dataset,args.batch_size)
-#     return train_dl,test_dl
 
 def loaddata(args):
     train_csv=pd.read_csv(args.train_csv)
     test_csv=pd.read_csv(args.test_csv)
     train_dataset=imagedataset(args.image_dir,train_csv)
     test_dataset=imagedataset(args.image_dir,test_csv)
-    train_dl=DataLoader(train_dataset,args.batch_size)
-    test_dl=DataLoader(test_dataset,args.batch_size)
+    train_dl=DataLoader(train_dataset,args.batch_size,shuffle=True)
+    test_dl=DataLoader(test_dataset,args.batch_size,shuffle=True)
     return train_dl,test_dl
 
-
-def main():
-    # 加载
-    args=makeargs()
+def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
+    scheduler.step()
+    loss=0
+    losses=0
+    mu=1
+    if isinstance(fr_model,list):
+        for module in fr_model:
+            module.train()
+    else:
+        fr_model.train()
+    attrlen=len(attrlist)
     device='cuda' if torch.cuda.is_available() else 'cpu'
-    writer=torch.utils.tensorboard.SummaryWriter('./log')
+    # intercount=e * len(train_dl.dataset)
+    intercount=e*(len(train_dl))
+    for i_bz,d in enumerate(tqdm(train_dl)):
+        feature= fr_model[0](d[0].to(device))
+        if 'softmax' in args.metric_type:
+            y=fr_model[1](feature)
+        else:
+            y=fr_model[1](feature,d[1].to(device))
 
-    # 读取数据
-    # train_dl,test_dl=loadimage(args)
+        if args.ingroup_loss:
+            loss1=XE(y,d[1].to(device))
+            pred_class_logits = fac_model(d[0].to(device))
+            race_pre = torch.argmax(pred_class_logits, dim=1)
+            # loss2=InGroupPenalty(feature,race_pre,len(attrlist))
+            loss2=FairnessPenalty((torch.argmax(y,dim=1)==d[1].to(device)),race_pre,len(attrlist))
+            loss=loss1+mu*loss2
+        else:
+            loss1=XE(y,d[1].to(device))
+            loss=loss1
+        losses = losses + loss
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if i_bz %args.print_inter==0:
+            pre_label=torch.argmax(y,dim=1)
+            acc=(pre_label==d[1].to(device)).sum()/d[1].shape[0]
+            losses=0
+            if i_bz % args.print_inter == 0:
+                pre_label = torch.argmax(y, dim=1)
+                acc = (pre_label == d[1].to(device)).sum() / d[1].shape[0]
+                losses = 0
+                print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz), len(train_dl), loss,
+                                                                                   acc))
+
+def test(test_dl,fr_model,i):
+    device='cuda' if torch.cuda.is_available() else 'cpu'
+    acc_total=0
+    if isinstance(fr_model, list):
+        fr_model[0].eval()
+        fr_model[1].eval()
+    else:
+        fr_model.eval()
+    result_pre=[]
+    result_names=[]
+
+    for data,label,name in tqdm(test_dl):
+        if isinstance(fr_model,list):
+            # feature=fr_model[0](data.to(device))
+            y=fr_model[1](fr_model[0](data.to(device)))
+        else:
+            _,y=fr_model(data.to(device))
+
+        pre_label=torch.argmax(y,dim=1)
+        acc_total+=(label.to(device)==pre_label).sum()
+        result_pre+=pre_label.tolist()
+        result_names+=list(name)
+    data = pd.DataFrame({
+        "Filename": result_names,
+        "pre_id": result_pre
+    })
+    data.to_csv(str(i)+'test.csv',index=None)
+    acc=acc_total/len(test_dl.dataset)
+    print("test result: {}".format(acc))
+
+# attrlist=["Asian","Black","White"]
+attrlist=["Male","Female"]
+
+args=makeargs()
+device='cuda' if torch.cuda.is_available() else 'cpu'
+
+if args.dataset=="vggface2":
+    args.idclass=8615
+elif args.dataset=="celeba":
+    args.idclass=10178
+
+fr_model=[]
+fr_model.append(FR_model_backbone())
+fr_model.append(FR_model_classifier(args.idclass,args.metric_type))
+if os.path.exists(args.ckpt_path):
+    fr_model=load_state_dict(fr_model,args.ckpt_path)
+else:
+    fr_model=load_state_dict_seperate(fr_model,args.ckpt_path_backbone,args.ckpt_path_classifier)
+
+for module in fr_model:
+    module.to(device)
+
+if args.train_type=="normal" and not args.ingroup_loss:
+    fac_model=None
+    print("no use for face attributes classifier")
+else:
+    fac_model=AttributeNet(args.attr_net_path)
+    fac_model.set_idx_list(attrlist)
+    fac_model.to('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+# dataset
+if args.dataset=="celeba":
+    train_dl, test_dl = loaddata_celeba(args)
+else:
     train_dl,test_dl=loaddata(args)
 
-    #读取模型
-    model=ResNet50(args.idclass)
-    model.load_state_dict(torch.load("checkpoints/2_cb.pth.tar")['state_dict'])
-    optimizer=torch.optim.SGD(model.parameters(),args.lr,momentum=0.9)
-    cel=nn.CrossEntropyLoss()
-    model.to(device)
+# optimizer & scheduler
+if isinstance(fr_model,list):
+    # optimizer = torch.optim.SGD(fr_model.parameters(), args.lr, momentum=0.9)
+    optimizer=torch.optim.SGD(
+        [{'params':fr_model[0].parameters(),},
+         {'params':fr_model[1].parameters()}],
+        lr=args.lr,
+        momentum=0.9
+    )
+else :
+    optimizer = torch.optim.SGD(fr_model.parameters(), args.lr, momentum=0.9)
+if args.warmup_step>1:
+    scheduler = WarmUpLR(optimizer, args.warmup_step)
+else:
+    scheduler=torch.optim.lr_scheduler.StepLR(optimizer,5,0.4)
 
-    bs=0
-    for e in range(args.epoch):
-        losses=0
-        timelosses=0
-        model.train()
-        for d in tqdm(train_dl):
-            bs += 1
-            y=model(d[0].to(device))
-            loss=cel(y,d[1].to(device))
-            optimizer.zero_grad()
-            losses=losses+loss
-            timelosses+=loss
-            loss.backward()
-            optimizer.step()
-            if bs%2000==0:
-                writer.add_scalar('loss/train',timelosses,int(bs/2000))
-                timelosses=0
-        writer.add_scalar('loss/traine',losses,e)
-        torch.save({'epoch': e, 'state_dict': model.state_dict()},
-                   os.path.join(args.save_path, str(e) + '_fcbaseline.pth.tar'))
-        total=0
-        corr=0
-        model.eval()
-        for d in tqdm(test_dl):
-            y=model(d[0].to(device))
-            _,label=torch.max(y,1)
-            total=total+label.size()[0]
-            corr+=(d[1].to(device)==label).sum()
-        print(float(corr)/float(total))
-        writer.add_scalar('acc/test',float(corr)/float(total),e)
+# training
+intercount=0
+for i in range(0,args.epoch):
+    print("start the {}th training:".format(str(i)))
+    train(train_dl,fr_model,optimizer,scheduler,i,fac_model)
+    scheduler.step()
+    if isinstance(fr_model,list):
+        torch.save({'epoch': i, 'state_dict': fr_model[0].state_dict()},
+               os.path.join(args.save_path,  'method3_vggface2_attention_backbone_prior_{}.pth.tar'.format(str(i))))
+        if 'softmax' in args.metric_type:
+            torch.save({'epoch': i, 'state_dict': fr_model[1].state_dict()},
+               os.path.join(args.save_path, 'method3_vggface2_attention_classifier_prior_{}.pth.tar'.format(str(i))))
+    else:
+        torch.save({'epoch': i, 'state_dict': fr_model.state_dict()},
+               os.path.join(args.save_path, str(i) + 'celeba_baseline.pth.tar'))
+    # test(test_dl,fr_model,i)
 
-main()

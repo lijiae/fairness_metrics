@@ -32,14 +32,14 @@ def makeargs():
     parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv')
 
     # training setting
-    parse.add_argument('--batch_size',type=int,default=16)
+    parse.add_argument('--batch_size',type=int,default=32)
     parse.add_argument('-lr',type=float,default=0.001)
     parse.add_argument('--warmup_step',type=int,default=0)
     parse.add_argument('--epoch',type=int,default=200)
     parse.add_argument('--mu',type=float,default=0.5)
     parse.add_argument('--print_inter',type=int,default=200)
-    parse.add_argument('--train_type',type=str,default='causal',choices=['causal','normal'])
-    parse.add_argument('--ingroup_loss',type=bool,default=True)
+    parse.add_argument('--train_type',type=str,default='normal',choices=['causal','normal'])
+    parse.add_argument('--ingroup_loss',type=bool,default=False)
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
@@ -49,10 +49,11 @@ def makeargs():
     parse.add_argument('--ckpt_path_backbone',type=str,default='')
     parse.add_argument('--ckpt_path_classifier',type=str,default='')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
+    parse.add_argument('--metric_type',type=str,choices=['arcface','cosface','softmax'],default='arcface')
 
     # concept setting
     parse.add_argument('--concept_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/average_face/gender")
-    parse.add_argument('--cluster_num',type=int,default=10)
+    parse.add_argument('--cluster_num',type=int,default=5)
     parse.add_argument('--pre_proto',type=bool,default=False)
     parse.add_argument('--save_concept',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/data/prototype/cluster_race/concept_A_B_W_feature.npy")
     parse.add_argument('--save_prior',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/data/prototype/cluster_race/prior_A_B_W_feature.npy")
@@ -91,58 +92,12 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
         concept_n=args.cluster_num
         sim_metric = Similarity()
         for i_bz,d in enumerate(tqdm(train_dl)):
-            #1&2
-            # feature=fr_model[0](d[0].to(device))
-            # pred_class_logits=fac_model(d[0].to(device))
-            # race_pre=torch.argmax(pred_class_logits,dim=1)
-            # get_feature_map=fac_model.get_feature_map()
-            # cam is f,logit is c
-            # f_x_c=[]
-            # for i in range(attrlen):
-            #     classid=torch.ones_like(race_pre)*i
-            #     f_x_c.append(getGradCam(get_feature_map,pred_class_logits,classid))
-            # cams=torch.stack(f_xsim_metric.cos_sim(d[0].to(device),concept)_c,0) # 将list中cam特征合并
-            # weights_race=torch.mul(cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3)).sum(0) # 和logit加权
-            # feature=(torch.mul(weights_race.unsqueeze(1),feature)+feature)/2 # 更新新的feature
-
-            # f is avg+feature,logit is c
-            # f_x_c=[]
-            # for i in range(attrlen):
-            #     classid=torch.ones_like(race_pre)*i
-            #     f_x_c.append(getGradCam(get_feature_map,pre            d_class_logits,classid))
-            # cams=torch.stack(f_x_c,0) # 将list中cam特征合并
-            # concept_cams=torch.mul(cams.unsqueeze(2).repeat([1,1,ch,1,1]),concept.unsqueeze(1).repeat([1,cams.shape[1],1,1,1]))
-            # feature=(feature-torch.mul(concept_cams,pred_class_logits.transpose(0,1).unsqueeze(2).unsqueeze(3).unsqueeze(4)).sum(0))/2
-            # y=fr_model[1](feature)
-
-            # 3. cluster matrix
-            # # f(x,c)
-            # # f_x_c=[]00
-            # # f_x_c.append(getGradCam(get_feature_map, pred_class_logits, race_pre))
-            # feature_origin=fr_model[0](d[0].to(device))
-            # pred_class_logits=fac_model(d[0].to(device))
-            # sim=nn.CosineSimilarity(dim=-1)
-            # race_pre=torch.argmax(pred_class_logits,dim=1)
-            #
-            # # image concept
-            # # get_feature_map=fac_model.get_feature_map()
-            # # f_x_c=getGradCam(get_feature_map,pred_class_logits,race_pre)
-            # # sim_matrix=sim(d[0].reshape(d[0].size()[0],-1).to(device).unsqueeze(1).repeat(1,concept_n,1),concept[race_pre].reshape(d[0].size()[0],concept_n,-1).to(device))
-            #
-            # # feature_concept
-            # sim_matrix=sim(feature_origin.reshape(feature_origin.size()[0],-1).to(device).unsqueeze(1).repeat(1,concept_n,1),concept[race_pre].reshape(feature_origin.size()[0],concept_n,-1).to(device))
-            # # sim_trans = sim_matrix - torch.min(sim_matrix, dim=1).values.unsqueeze(1)
-            # # sim_trans=sim_trans/sim_trans.sum(1).unsqueeze(1)# 归一化
-            # sim_trans=torch.nn.functional.softmax(sim_matrix,dim=1)
-            # feature=0.9*feature_origin+(sim_trans.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)*concept[race_pre]).sum(1)*0.1
-            # y=fr_model[1](feature)
-
             # attention module
             feature_origin=fr_model[0](d[0].to(device))
             pred_class_logits=fac_model(d[0].to(device))
             race_pre=torch.argmax(pred_class_logits,dim=1)
             image_level_context=Module_CIAM(feature_origin,concept[race_pre],prior[race_pre])
-            feature=0.5*feature_origin+0.5*image_level_context
+            feature=feature_origin+image_level_context
             y=fr_model[1](feature)
 
             if args.ingroup_loss:
@@ -172,15 +127,17 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
         writer.add_scalar('vggface2_causal/train_losses',total_losses,e)
     elif args.train_type == 'normal':
         for i_bz,d in enumerate(tqdm(train_dl)):
-            feature,y=fr_model(d[0].to(device))
+            feature= fr_model[0](d[0].to(device))
+            y=fr_model[1](feature)
 
             if args.ingroup_loss:
+                loss1=XE(y,d[1].to(device))
                 pred_class_logits = fac_model(d[0].to(device))
                 race_pre = torch.argmax(pred_class_logits, dim=1)
-                loss1=XE(y,d[1].to(device))
-                loss2=InGroupPenalty(feature,race_pre,len(attrlist))
+                # loss2=InGroupPenalty(feature,race_pre,len(attrlist))
+                loss2=FairnessPenalty((torch.argmax(y,dim=1)==d[1].to(device)),race_pre,len(attrlist))
                 loss=loss1+mu*loss2
-                writer.add_scalar('celeba-baseline/train_loss_ingrouploss',loss2)
+                writer.add_scalar('mu0.5/train_loss_ingrouploss',loss2,intercount)
             else:
                 loss1=XE(y,d[1].to(device))
                 loss=loss1
@@ -188,15 +145,18 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            writer.add_scalar('celeba-baseline/train_loss',loss)
-            writer.add_scalar('celeba-baseline/train_loss_xe',loss1)
 
             if i_bz %args.print_inter==0:
                 pre_label=torch.argmax(y,dim=1)
                 acc=(pre_label==d[1].to(device)).sum()/d[1].shape[0]
-                writer.add_scalar('celeba-baseline/train_losses',losses)
                 losses=0
-                print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz),len(train_dl),loss,acc))
+                if i_bz % args.print_inter == 0:
+                    pre_label = torch.argmax(y, dim=1)
+                    acc = (pre_label == d[1].to(device)).sum() / d[1].shape[0]
+                    writer.add_scalar('celeba_baseline/train_losses', losses, intercount)
+                    losses = 0
+                    print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz), len(train_dl), loss,
+                                                                                       acc))
 
 def test(test_dl,fr_model,i):
     device='cuda' if torch.cuda.is_available() else 'cpu'
@@ -241,23 +201,32 @@ if args.dataset=="vggface2":
 elif args.dataset=="celeba":
     args.idclass=10178
 
-if args.train_type=='normal':
-    fr_model=FR_model(args.idclass)
-    if os.path.exists(args.ckpt_path):
-        fr_model=load_state_dict(fr_model,args.ckpt_path)
-    fr_model.to(device)
+# if args.train_type=='normal':
+#     fr_model=FR_model(args.idclass)
+#     if os.path.exists(args.ckpt_path):
+#         fr_model=load_state_dict(fr_model,args.ckpt_path)
+#     fr_model.to(device)
+# else:
+#     fr_model=[]
+#     fr_model.append(FR_model_backbone())
+#     fr_model.append(FR_model_classifier(args.idclass))
+#     if os.path.exists(args.ckpt_path):
+#         fr_model=load_state_dict(fr_model,args.ckpt_path)
+#     else:
+#         fr_model=load_state_dict_seperate(fr_model,args.ckpt_path_backbone,args.ckpt_path_classifier)
+#
+#     for module in fr_model:
+#         module.to(device)
+fr_model=[]
+fr_model.append(FR_model_backbone())
+fr_model.append(FR_model_classifier(args.idclass))
+if os.path.exists(args.ckpt_path):
+    fr_model=load_state_dict(fr_model,args.ckpt_path)
 else:
-    fr_model=[]
-    fr_model.append(FR_model_backbone())
-    fr_model.append(FR_model_classifier(args.idclass))
-    if os.path.exists(args.ckpt_path):
-        fr_model=load_state_dict(fr_model,args.ckpt_path)
-    else:
-        fr_model=load_state_dict_seperate(fr_model,args.ckpt_path_backbone,args.ckpt_path_classifier)
+    fr_model=load_state_dict_seperate(fr_model,args.ckpt_path_backbone,args.ckpt_path_classifier)
 
-    for module in fr_model:
-        module.to(device)
-
+for module in fr_model:
+    module.to(device)
 
 if args.train_type=="normal" and not args.ingroup_loss:
     fac_model=None
@@ -315,7 +284,8 @@ for i in range(0,args.epoch):
     if isinstance(fr_model,list):
         torch.save({'epoch': i, 'state_dict': fr_model[0].state_dict()},
                os.path.join(args.save_path,  'method3_vggface2_attention_backbone_prior_{}.pth.tar'.format(str(i))))
-        torch.save({'epoch': i, 'state_dict': fr_model[1].state_dict()},
+        if 'softmax' in args.metric_type:
+            torch.save({'epoch': i, 'state_dict': fr_model[1].state_dict()},
                os.path.join(args.save_path, 'method3_vggface2_attention_classifier_prior_{}.pth.tar'.format(str(i))))
     else:
         torch.save({'epoch': i, 'state_dict': fr_model.state_dict()},
