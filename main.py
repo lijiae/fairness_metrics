@@ -33,7 +33,7 @@ def makeargs():
 
     # training setting
     parse.add_argument('--batch_size',type=int,default=16)
-    parse.add_argument('-lr',type=float,default=0.00001)
+    parse.add_argument('-lr',type=float,default=0.0001)
     parse.add_argument('--warmup_step',type=int,default=0)
     parse.add_argument('--epoch',type=int,default=200)
     parse.add_argument('--mu',type=float,default=0.5)
@@ -45,7 +45,7 @@ def makeargs():
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
     parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
     parse.add_argument('--idclass',type=int,default=8615)
-    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/normal/0_vggface2_resnet.pth.tar')
+    parse.add_argument('--ckpt_path',type=str,default='')
     parse.add_argument('--ckpt_path_backbone',type=str,default='')
     parse.add_argument('--ckpt_path_classifier',type=str,default='')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
@@ -162,7 +162,7 @@ fr_model.append(FR_model_backbone())
 fr_model.append(FR_model_classifier(args.idclass,args.metric_type))
 if os.path.exists(args.ckpt_path):
     fr_model=load_state_dict(fr_model,args.ckpt_path)
-else:
+elif os.path.exists(args.ckpt_path_backbone):
     fr_model=load_state_dict_seperate(fr_model,args.ckpt_path_backbone,args.ckpt_path_classifier)
 
 for module in fr_model:
@@ -208,8 +208,7 @@ for i in range(0,args.epoch):
     if isinstance(fr_model,list):
         torch.save({'epoch': i, 'state_dict': fr_model[0].state_dict()},
                os.path.join(args.save_path,  'method3_vggface2_attention_backbone_prior_{}.pth.tar'.format(str(i))))
-        if 'softmax' in args.metric_type:
-            torch.save({'epoch': i, 'state_dict': fr_model[1].state_dict()},
+        torch.save({'epoch': i, 'state_dict': fr_model[1].state_dict()},
                os.path.join(args.save_path, 'method3_vggface2_attention_classifier_prior_{}.pth.tar'.format(str(i))))
     else:
         torch.save({'epoch': i, 'state_dict': fr_model.state_dict()},
