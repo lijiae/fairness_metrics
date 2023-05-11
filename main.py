@@ -32,8 +32,8 @@ def makeargs():
     parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv')
 
     # training setting
-    parse.add_argument('--batch_size',type=int,default=16)
-    parse.add_argument('-lr',type=float,default=0.0001)
+    parse.add_argument('--batch_size',type=int,default=32)
+    parse.add_argument('-lr',type=float,default=0.001)
     parse.add_argument('--warmup_step',type=int,default=0)
     parse.add_argument('--epoch',type=int,default=200)
     parse.add_argument('--mu',type=float,default=0.5)
@@ -87,6 +87,7 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
     # intercount=e * len(train_dl.dataset)
     intercount=e*(len(train_dl))
     for i_bz,d in enumerate(tqdm(train_dl)):
+        intercount=intercount+1
         feature= fr_model[0](d[0].to(device))
         y=fr_model[1](feature)
         if args.ingroup_loss:
@@ -108,12 +109,9 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
         if i_bz %args.print_inter==0:
             pre_label=torch.argmax(y,dim=1)
             acc=(pre_label==d[1].to(device)).sum()/d[1].shape[0]
+            writer.add_scalar('arcface/train_loss',losses,intercount)
             losses=0
-            if i_bz % args.print_inter == 0:
-                pre_label = torch.argmax(y, dim=1)
-                acc = (pre_label == d[1].to(device)).sum() / d[1].shape[0]
-                losses = 0
-                print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz), len(train_dl), loss,
+            print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz), len(train_dl), loss,
                                                                                    acc))
 
 def test(test_dl,fr_model,i):
@@ -202,6 +200,7 @@ else:
 # training
 intercount=0
 for i in range(0,args.epoch):
+    writer = torch.utils.tensorboard.SummaryWriter('./log')
     print("start the {}th training:".format(str(i)))
     train(train_dl,fr_model,optimizer,scheduler,i,fac_model)
     scheduler.step()

@@ -5,12 +5,13 @@ from data.imagedata import *
 from utils.prototype import *
 
 
-def load_state_dict(model,dictpath):
+def load_state_dict(model,dictpath,fine_tune=True):
     pre_ckpt=torch.load(dictpath)
     if isinstance(model,list):
         model[0].backbone.load_state_dict(pre_ckpt['state_dict'],False)
-        if isinstance(model[1].fc,torch.nn.Linear):
-            model[1].load_state_dict(pre_ckpt['state_dict'],False)
+        if not fine_tune:
+            if isinstance(model[1].fc,torch.nn.Linear):
+                model[1].load_state_dict(pre_ckpt['state_dict'],False)
     else:
         model.load_state_dict(pre_ckpt['state_dict'])
     return model

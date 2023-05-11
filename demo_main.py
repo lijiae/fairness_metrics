@@ -45,9 +45,9 @@ def makeargs():
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
     parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
     parse.add_argument('--idclass',type=int,default=8615)
-    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/normal/7_vggface2_resnet.pth.tar')
-    parse.add_argument('--ckpt_path_backbone',type=str,default='')
-    parse.add_argument('--ckpt_path_classifier',type=str,default='')
+    parse.add_argument('--ckpt_path',type=str,default='')
+    parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline/method3_vggface2_attention_backbone_prior_0.pth.tar')
+    parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline/method3_vggface2_attention_classifier_prior_0.pth.tar')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
     parse.add_argument('--metric_type',type=str,choices=['arcface','cosface','softmax'],default='arcface')
 
@@ -277,7 +277,7 @@ else:
 
 # training
 intercount=0
-for i in range(0,args.epoch):
+for i in range(1,args.epoch):
     print("start the {}th training:".format(str(i)))
     train(train_dl,fr_model,optimizer,scheduler,i,fac_model)
     scheduler.step()
