@@ -5,7 +5,7 @@ from data.imagedata import *
 from utils.prototype import *
 
 
-def load_state_dict(model,dictpath,fine_tune=True):
+def load_state_dict(model,dictpath,fine_tune=False):
     pre_ckpt=torch.load(dictpath)
     if isinstance(model,list):
         model[0].backbone.load_state_dict(pre_ckpt['state_dict'],False)
