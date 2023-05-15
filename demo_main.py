@@ -17,6 +17,7 @@ from data.imagedata import imagedataset
 from utils.penalty import *
 from utils.getdata import *
 # from utils.gradcam_batch import GradFeature
+import yaml
 
 from model.CausalMerge import FR_model,FR_model_classifier,FR_model_backbone
 from model.AttributeNet import AttributeNet
@@ -62,18 +63,8 @@ def makeargs():
     args=parse.parse_args()
     return args
 
-def loaddata(args):
-    train_csv=pd.read_csv(args.train_csv)
-    test_csv=pd.read_csv(args.test_csv)
-    train_dataset=imagedataset(args.image_dir,train_csv)
-    test_dataset=imagedataset(args.image_dir,test_csv)
-    train_dl=DataLoader(train_dataset,args.batch_size,shuffle=True)
-    test_dl=DataLoader(test_dataset,args.batch_size,shuffle=True)
-    return train_dl,test_dl
-
 def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
     scheduler.step()
-    loss=0
     losses=0
     mu=1
     if isinstance(fr_model,list):
@@ -81,16 +72,11 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
             module.train()
     else:
         fr_model.train()
-    attrlen=len(attrlist)
     device='cuda' if torch.cuda.is_available() else 'cpu'
-    # intercount=e * len(train_dl.dataset)
     total_losses=0
     intercount=e*(len(train_dl))
 
     if args.train_type == 'causal':
-        ch=2048
-        concept_n=args.cluster_num
-        sim_metric = Similarity()
         for i_bz,d in enumerate(tqdm(train_dl)):
             # attention module
             feature_origin=fr_model[0](d[0].to(device))
@@ -102,7 +88,6 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
 
             if args.ingroup_loss:
                 loss1=XE(y,d[1].to(device))
-                # loss2=InGroupPenalty(feature,race_pre,len(attrlist))
                 loss2=FairnessPenalty((torch.argmax(y,dim=1)==d[1].to(device)),race_pre,len(attrlist))
                 loss=loss1+mu*loss2
                 writer.add_scalar('mu0.5/train_loss_ingrouploss',loss2,intercount)
@@ -134,7 +119,6 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
                 loss1=XE(y,d[1].to(device))
                 pred_class_logits = fac_model(d[0].to(device))
                 race_pre = torch.argmax(pred_class_logits, dim=1)
-                # loss2=InGroupPenalty(feature,race_pre,len(attrlist))
                 loss2=FairnessPenalty((torch.argmax(y,dim=1)==d[1].to(device)),race_pre,len(attrlist))
                 loss=loss1+mu*loss2
                 writer.add_scalar('mu0.5/train_loss_ingrouploss',loss2,intercount)
@@ -196,27 +180,8 @@ args=makeargs()
 writer=torch.utils.tensorboard.SummaryWriter('./log')
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
-if args.dataset=="vggface2":
-    args.idclass=8615
-elif args.dataset=="celeba":
-    args.idclass=10178
 
-# if args.train_type=='normal':
-#     fr_model=FR_model(args.idclass)
-#     if os.path.exists(args.ckpt_path):
-#         fr_model=load_state_dict(fr_model,args.ckpt_path)
-#     fr_model.to(device)
-# else:
-#     fr_model=[]
-#     fr_model.append(FR_model_backbone())
-#     fr_model.append(FR_model_classifier(args.idclass))
-#     if os.path.exists(args.ckpt_path):
-#         fr_model=load_state_dict(fr_model,args.ckpt_path)
-#     else:
-#         fr_model=load_state_dict_seperate(fr_model,args.ckpt_path_backbone,args.ckpt_path_classifier)
-#
-#     for module in fr_model:
-#         module.to(device)
+# model
 fr_model=[]
 fr_model.append(FR_model_backbone())
 fr_model.append(FR_model_classifier(args.idclass))
@@ -224,7 +189,6 @@ if os.path.exists(args.ckpt_path):
     fr_model=load_state_dict(fr_model,args.ckpt_path)
 else:
     fr_model=load_state_dict_seperate(fr_model,args.ckpt_path_backbone,args.ckpt_path_classifier)
-
 for module in fr_model:
     module.to(device)
 
@@ -254,10 +218,12 @@ else:
 
 
 # dataset
-if args.dataset=="celeba":
-    train_dl, test_dl = loaddata_celeba(args)
-else:
-    train_dl,test_dl=loaddata(args)
+with open(args.data_yaml) as file:
+    data_config=yaml.load(file,Loader=yaml.FullLoader)[args.dataset]
+
+train_dataset,test_dataset=load_data_yaml(data_config)
+train_dl=DataLoader(train_dataset,args.batch_size)
+test_dl=DataLoader(test_dataset,args.batch_size)
 
 # optimizer & scheduler
 if isinstance(fr_model,list):
@@ -270,10 +236,7 @@ if isinstance(fr_model,list):
     )
 else :
     optimizer = torch.optim.SGD(fr_model.parameters(), args.lr, momentum=0.9)
-if args.warmup_step>1:
-    scheduler = WarmUpLR(optimizer, args.warmup_step)
-else:
-    scheduler=torch.optim.lr_scheduler.StepLR(optimizer,5,0.4)
+scheduler=torch.optim.lr_scheduler.StepLR(optimizer,5,0.4)
 
 # training
 intercount=0
