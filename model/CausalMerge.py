@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.classifier import *
 from model.resnet50 import *
 
 class FR_model(nn.Module):

@@ -58,6 +58,10 @@ class WarmUpLR(_LRScheduler):
 class XE_loss(nn.Module):
     def __init__(self):
         super(XE_loss).__init__()
+        self.loss_fucntion=nn.CrossEntropyLoss()
+
+    def loss_caculate(self, wf, labels):
+        return self.loss_fucntion(wf,labels)
 
 class AngularPenaltySMLoss(nn.Module):
 

@@ -44,7 +44,7 @@ def makeargs():
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
-    parse.add_argument('--dataset',type=str,default="celeba",choices=["celeba","vggface2"])
+    parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
     parse.add_argument('--data_yaml',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/config/dataset.yaml")
     parse.add_argument('--ckpt_path',type=str,default='')
     parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline/method3_vggface2_attention_backbone_prior_1.pth.tar')
