@@ -61,7 +61,7 @@ class FR_model_classifier(nn.Module):
         self.type=type
         self.fc=nn.Linear(2048, numclass,bias=False)
 
-    def forward(self,feature,label=None):
+    def forward(self,feature):
         feature = self.average(feature)
         if 'softmax' in self.type:
             y=self.fc(feature.reshape(feature.shape[:2]))

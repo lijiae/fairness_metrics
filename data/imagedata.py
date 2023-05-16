@@ -89,9 +89,6 @@ class imagedataset(Dataset):
         img = torch.from_numpy(img).float()
         return img
 
-# class LFWDataset(Dataset):
-#     def __init__(self,imgdir,pos_pair,neg_pair):
-
 class CelebA(Dataset):
     def __init__(self, path, namelist, idfile):
         super(CelebA).__init__()

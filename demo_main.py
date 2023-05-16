@@ -34,7 +34,7 @@ def makeargs():
 
     # training setting
     parse.add_argument('--batch_size',type=int,default=32)
-    parse.add_argument('-lr',type=float,default=0.001)
+    parse.add_argument('-lr',type=float,default=0.0001)
     parse.add_argument('--warmup_step',type=int,default=0)
     parse.add_argument('--epoch',type=int,default=200)
     parse.add_argument('--mu',type=float,default=0.5)
@@ -44,11 +44,11 @@ def makeargs():
 
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
-    parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
-    parse.add_argument('--idclass',type=int,default=8615)
+    parse.add_argument('--dataset',type=str,default="celeba",choices=["celeba","vggface2"])
+    parse.add_argument('--data_yaml',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/config/dataset.yaml")
     parse.add_argument('--ckpt_path',type=str,default='')
-    parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline/method3_vggface2_attention_backbone_prior_0.pth.tar')
-    parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline/method3_vggface2_attention_classifier_prior_0.pth.tar')
+    parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline/method3_vggface2_attention_backbone_prior_1.pth.tar')
+    parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline/method3_vggface2_attention_classifier_prior_1.pth.tar')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
     parse.add_argument('--metric_type',type=str,choices=['arcface','cosface','softmax'],default='arcface')
 
@@ -64,7 +64,6 @@ def makeargs():
     return args
 
 def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
-    scheduler.step()
     losses=0
     mu=1
     if isinstance(fr_model,list):
@@ -111,36 +110,31 @@ def train(train_dl,fr_model,optimizer,scheduler,e,fac_model=None):
             intercount=intercount+1
         writer.add_scalar('vggface2_causal/train_losses',total_losses,e)
     elif args.train_type == 'normal':
+        intercount=intercount+1
         for i_bz,d in enumerate(tqdm(train_dl)):
-            feature= fr_model[0](d[0].to(device))
+            feature = fr_model[0](d[0].to(device))
             y=fr_model[1](feature)
-
             if args.ingroup_loss:
                 loss1=XE(y,d[1].to(device))
                 pred_class_logits = fac_model(d[0].to(device))
                 race_pre = torch.argmax(pred_class_logits, dim=1)
                 loss2=FairnessPenalty((torch.argmax(y,dim=1)==d[1].to(device)),race_pre,len(attrlist))
                 loss=loss1+mu*loss2
-                writer.add_scalar('mu0.5/train_loss_ingrouploss',loss2,intercount)
             else:
-                loss1=XE(y,d[1].to(device))
+                loss1=criteria.loss_caculate(y,d[1].to(device))
                 loss=loss1
             losses = losses + loss
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            if i_bz %args.print_inter==0:
-                pre_label=torch.argmax(y,dim=1)
-                acc=(pre_label==d[1].to(device)).sum()/d[1].shape[0]
-                losses=0
-                if i_bz % args.print_inter == 0:
-                    pre_label = torch.argmax(y, dim=1)
-                    acc = (pre_label == d[1].to(device)).sum() / d[1].shape[0]
-                    writer.add_scalar('celeba_baseline/train_losses', losses, intercount)
-                    losses = 0
-                    print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz), len(train_dl), loss,
-                                                                                       acc))
+            if i_bz % args.print_inter == 0:
+                pre_label = torch.argmax(y, dim=1)
+                acc = (pre_label == d[1].to(device)).sum() / d[1].shape[0]
+                writer.add_scalar('celeba_baseline/train_losses', losses, intercount)
+                losses = 0
+                print("batch:{}/total batch:{}  loss:{}  total_loss acc:{}".format(str(i_bz), len(train_dl), loss,
+                                                                                   acc))
 
 def test(test_dl,fr_model,i):
     device='cuda' if torch.cuda.is_available() else 'cpu'
@@ -180,14 +174,22 @@ args=makeargs()
 writer=torch.utils.tensorboard.SummaryWriter('./log')
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
+# dataset
+with open(args.data_yaml) as file:
+    data_config=yaml.load(file,Loader=yaml.FullLoader)[args.dataset]
+
+train_dataset,test_dataset=load_data_yaml(data_config)
+train_dl = DataLoader(train_dataset, args.batch_size, shuffle=True)
+test_dl = DataLoader(test_dataset, args.batch_size, shuffle=True)
+
 
 # model
 fr_model=[]
 fr_model.append(FR_model_backbone())
-fr_model.append(FR_model_classifier(args.idclass))
+fr_model.append(FR_model_classifier(data_config['numclass'],args.metric_type))
 if os.path.exists(args.ckpt_path):
     fr_model=load_state_dict(fr_model,args.ckpt_path)
-else:
+elif os.path.exists(args.ckpt_path_backbone):
     fr_model=load_state_dict_seperate(fr_model,args.ckpt_path_backbone,args.ckpt_path_classifier)
 for module in fr_model:
     module.to(device)
@@ -217,13 +219,12 @@ else:
     Module_CIAM=CIAM(concept_n=args.cluster_num)
 
 
-# dataset
-with open(args.data_yaml) as file:
-    data_config=yaml.load(file,Loader=yaml.FullLoader)[args.dataset]
-
-train_dataset,test_dataset=load_data_yaml(data_config)
-train_dl=DataLoader(train_dataset,args.batch_size)
-test_dl=DataLoader(test_dataset,args.batch_size)
+# criteria
+if 'resnet' in args.backbone_type:
+    ch=2048
+else:
+    ch=512
+criteria=AngularPenaltySMLoss(ch,data_config['numclass'],args.metric_type)
 
 # optimizer & scheduler
 if isinstance(fr_model,list):
@@ -236,7 +237,7 @@ if isinstance(fr_model,list):
     )
 else :
     optimizer = torch.optim.SGD(fr_model.parameters(), args.lr, momentum=0.9)
-scheduler=torch.optim.lr_scheduler.StepLR(optimizer,5,0.4)
+scheduler=torch.optim.lr_scheduler.StepLR(optimizer,1,0.1)
 
 # training
 intercount=0

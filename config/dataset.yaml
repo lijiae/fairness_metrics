@@ -1,21 +1,21 @@
 # save your dataset config
 
-CelebA:
+celeba:
   # basic
   numclass: 10178
   # path
   path:
     dir: /media/lijia/DATA/lijia/data/CelebA/Img/img_align_celeba
-    train_csv_path: /media/lijia/DATA/lijia/data/CelebA/Img/img_align_celeba
-    test_csv_path:
-    attr_csv_path:
+    train_csv_path: /media/lijia/DATA/lijia/data/CelebA/Anno/train_celeba_id.csv
+    test_csv_path: /media/lijia/DATA/lijia/data/CelebA/Anno/test_celeba_id.csv
+    attr_csv_path: /media/lijia/DATA/lijia/data/CelebA/Anno/celeba_attr.csv
 
-VGGFACE2:
+vggface2:
   # basic
   numclass: 8615
   # path
   path:
-    dir: /media/lijia/DATA/lijia/data/CelebA/Img/img_align_celeba
-    train_csv_path: /media/lijia/DATA/lijia/data/CelebA/Img/img_align_celeba
-    test_csv_path:
-    attr_csv_path:
+    dir: /media/lijia/DATA/lijia/data/vggface2/train_align
+    train_csv_path: /media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample_8615.csv
+    test_csv_path: /media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv
+    attr_csv_path: /media/lijia/DATA/lijia/data/vggface2/anno/maad_id.csv

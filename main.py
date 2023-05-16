@@ -2,7 +2,7 @@ import numpy as np
 import argparse
 import pandas as pd
 from tqdm import tqdm
-
+import yaml
 
 from model.resnet50 import ResNet50
 # import tensorboard as tx
@@ -33,7 +33,7 @@ def makeargs():
 
     # training setting
     parse.add_argument('--batch_size',type=int,default=32)
-    parse.add_argument('-lr',type=float,default=0.0001)
+    parse.add_argument('-lr',type=float,default=0.00001)
     parse.add_argument('--warmup_step',type=int,default=0)
     parse.add_argument('--epoch',type=int,default=5)
     parse.add_argument('--print_inter',type=int,default=200)
@@ -43,15 +43,16 @@ def makeargs():
     # model setting
     parse.add_argument('--backbone_type',type=str,choices=['resnet50','senet'],default='resnet50')
     parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
+    parse.add_argument('--data_yaml',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/config/dataset.yaml")
     parse.add_argument('--idclass',type=int,default=8615)
-    parse.add_argument('--ckpt_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/normal/7_vggface2_resnet.pth.tar')
-    parse.add_argument('--ckpt_path_backbone',type=str,default='')
-    parse.add_argument('--ckpt_path_classifier',type=str,default='')
+    parse.add_argument('--ckpt_path',type=str,default='')
+    parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline/method3_vggface2_attention_backbone_prior_1.pth.tar')
+    parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline/method3_vggface2_attention_classifier_prior_1.pth.tar')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
     parse.add_argument('--metric_type',type=str,choices=['arcface','cosface','softmax'],default='arcface')
 
     # concept setting
-    parse.add_argument('--concept_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/average_face/gender")
+    parse.add_argument('--concept_dir',type=str,default="/msedia/lijia/DATA/lijia/data/vggface2/average_face/gender")
     parse.add_argument('--cluster_num',type=int,default=5)
     parse.add_argument('--pre_proto',type=bool,default=False)
     parse.add_argument('--save_concept',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/data/prototype/cluster_race/concept_A_B_W_feature.npy")
@@ -61,11 +62,20 @@ def makeargs():
     args=parse.parse_args()
     return args
 
-def loaddata(args):
-    train_csv=pd.read_csv(args.train_csv)
-    test_csv=pd.read_csv(args.test_csv)
-    train_dataset=imagedataset(args.image_dir,train_csv)
-    test_dataset=imagedataset(args.image_dir,test_csv)
+# def loaddata(args):
+#     train_csv=pd.read_csv(args.train_csv)
+#     test_csv=pd.read_csv(args.test_csv)
+#     train_dataset=imagedataset(args.image_dir,train_csv)
+#     test_dataset=imagedataset(args.image_dir,test_csv)
+#     train_dl=DataLoader(train_dataset,args.batch_size,shuffle=True)
+#     test_dl=DataLoader(test_dataset,args.batch_size,shuffle=True)
+#     return train_dl,test_dl
+
+def loaddata(d):
+    train_csv=pd.read_csv(d['path']['train_csv_path'])
+    test_csv=pd.read_csv(d['path']['test_csv_path'])
+    train_dataset=imagedataset(d['path']['dir'],train_csv)
+    test_dataset=imagedataset(d['path']['dir'],test_csv)
     train_dl=DataLoader(train_dataset,args.batch_size,shuffle=True)
     test_dl=DataLoader(test_dataset,args.batch_size,shuffle=True)
     return train_dl,test_dl
@@ -173,12 +183,20 @@ else:
     fac_model.set_idx_list(attrlist)
     fac_model.to('cuda' if torch.cuda.is_available() else 'cpu')
 
-
+# with open(args.data_yaml) as file:
+#     data_config=yaml.load(file,Loader=yaml.FullLoader)[args.dataset]
+# # # dataset
+# if args.dataset=="celeba":
+#     train_dl, test_dl = loaddata_celeba(args)
+# else:
+#     train_dl,test_dl=loaddata(data_config)
 # dataset
-if args.dataset=="celeba":
-    train_dl, test_dl = loaddata_celeba(args)
-else:
-    train_dl,test_dl=loaddata(args)
+with open(args.data_yaml) as file:
+    data_config=yaml.load(file,Loader=yaml.FullLoader)[args.dataset]
+
+train_dataset,test_dataset=load_data_yaml(data_config)
+train_dl = DataLoader(train_dataset, args.batch_size, shuffle=True)
+test_dl = DataLoader(test_dataset, args.batch_size, shuffle=True)
 
 # optimizer & scheduler
 if isinstance(fr_model,list):
