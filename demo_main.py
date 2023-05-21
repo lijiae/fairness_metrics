@@ -161,8 +161,8 @@ def test(test_dl,fr_model,i):
             result_names+=list(name)
     else:
         for data, label, name in tqdm(test_dl):
-            feature_origin=fr_model[0](data[0].to(device))
-            pred_class_logits=fac_model(data[0].to(device))
+            feature_origin=fr_model[0](data.to(device))
+            pred_class_logits=fac_model(data.to(device))
             race_pre=torch.argmax(pred_class_logits,dim=1)
             image_level_context=Module_CIAM(feature_origin,concept[race_pre],prior[race_pre])
             feature=feature_origin+image_level_context
