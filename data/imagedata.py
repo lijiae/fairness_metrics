@@ -74,7 +74,7 @@ class imagedataset(Dataset):
         imgname=self.namelist[index]
         id=self.idtensor[index]
         label=torch.tensor(int(id)).long()
-        data = torchvision.transforms.Resize(224)(Image.open(os.path.join(self.dir,imgname)))
+        data = torchvision.transforms.Resize((224,224))(Image.open(os.path.join(self.dir,imgname)))
         data = np.array(data, dtype=np.uint8)
         data = self.transform(data)
         # label = np.int32(label)

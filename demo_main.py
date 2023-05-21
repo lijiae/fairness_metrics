@@ -28,15 +28,15 @@ def makeargs():
     parse=argparse.ArgumentParser()
     parse.add_argument('--image_dir',type=str,default="/media/lijia/DATA/lijia/data/vggface2/train_align")
     parse.add_argument('--maad_path',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/maad_id.csv')
-    parse.add_argument('--save_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/vggface2-method3')
+    parse.add_argument('--save_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline')
     parse.add_argument('--train_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/train_id_sample_8615.csv')
     parse.add_argument('--test_csv',type=str,default='/media/lijia/DATA/lijia/data/vggface2/anno/test_id_sample_8615.csv')
 
     # training setting
     parse.add_argument('--batch_size',type=int,default=32)
-    parse.add_argument('-lr',type=float,default=0.0001)
+    parse.add_argument('-lr',type=float,default=0.01)
     parse.add_argument('--warmup_step',type=int,default=0)
-    parse.add_argument('--epoch',type=int,default=200)
+    parse.add_argument('--epoch',type=int,default=10)
     parse.add_argument('--mu',type=float,default=0.5)
     parse.add_argument('--print_inter',type=int,default=200)
     parse.add_argument('--train_type',type=str,default='normal',choices=['causal','normal'])
@@ -47,8 +47,8 @@ def makeargs():
     parse.add_argument('--dataset',type=str,default="vggface2",choices=["celeba","vggface2"])
     parse.add_argument('--data_yaml',type=str,default="/home/lijia/codes/202302/lijia/face-recognition/config/dataset.yaml")
     parse.add_argument('--ckpt_path',type=str,default='')
-    parse.add_argument('--ckpt_path_backbone',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline/method3_vggface2_attention_backbone_prior_1.pth.tar')
-    parse.add_argument('--ckpt_path_classifier',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/arcface/baseline/method3_vggface2_attention_classifier_prior_1.pth.tar')
+    parse.add_argument('--ckpt_path_backbone',type=str,default='')
+    parse.add_argument('--ckpt_path_classifier',type=str,default='')
     parse.add_argument('--attr_net_path',type=str,default='/home/lijia/codes/202302/lijia/face-recognition/checkpoints/AttributeNet.pkl')
     parse.add_argument('--metric_type',type=str,choices=['arcface','cosface','softmax'],default='arcface')
 
@@ -147,17 +147,31 @@ def test(test_dl,fr_model,i):
     result_pre=[]
     result_names=[]
 
-    for data,label,name in tqdm(test_dl):
-        if isinstance(fr_model,list):
-            # feature=fr_model[0](data.to(device))
-            y=fr_model[1](fr_model[0](data.to(device)))
-        else:
-            _,y=fr_model(data.to(device))
+    if args.train_type == 'normal':
+        for data,label,name in tqdm(test_dl):
+            if isinstance(fr_model,list):
+                # feature=fr_model[0](data.to(device))
+                y=fr_model[1](fr_model[0](data.to(device)))
+            else:
+                _,y=fr_model(data.to(device))
 
-        pre_label=torch.argmax(y,dim=1)
-        acc_total+=(label.to(device)==pre_label).sum()
-        result_pre+=pre_label.tolist()
-        result_names+=list(name)
+            pre_label=torch.argmax(y,dim=1)
+            acc_total+=(label.to(device)==pre_label).sum()
+            result_pre+=pre_label.tolist()
+            result_names+=list(name)
+    else:
+        for data, label, name in tqdm(test_dl):
+            feature_origin=fr_model[0](data[0].to(device))
+            pred_class_logits=fac_model(data[0].to(device))
+            race_pre=torch.argmax(pred_class_logits,dim=1)
+            image_level_context=Module_CIAM(feature_origin,concept[race_pre],prior[race_pre])
+            feature=feature_origin+image_level_context
+            y=fr_model[1](feature)
+
+            pre_label = torch.argmax(y, dim=1)
+            acc_total += (label.to(device) == pre_label).sum()
+            result_pre += pre_label.tolist()
+            result_names += list(name)
     data = pd.DataFrame({
         "Filename": result_names,
         "pre_id": result_pre
@@ -237,20 +251,19 @@ if isinstance(fr_model,list):
     )
 else :
     optimizer = torch.optim.SGD(fr_model.parameters(), args.lr, momentum=0.9)
-scheduler=torch.optim.lr_scheduler.StepLR(optimizer,1,0.1)
+scheduler=torch.optim.lr_scheduler.StepLR(optimizer,3,0.1)
 
 # training
 intercount=0
-for i in range(1,args.epoch):
+for i in range(0,args.epoch):
     print("start the {}th training:".format(str(i)))
     train(train_dl,fr_model,optimizer,scheduler,i,fac_model)
     scheduler.step()
     if isinstance(fr_model,list):
         torch.save({'epoch': i, 'state_dict': fr_model[0].state_dict()},
-               os.path.join(args.save_path,  'method3_vggface2_attention_backbone_prior_{}.pth.tar'.format(str(i))))
-        if 'softmax' in args.metric_type:
-            torch.save({'epoch': i, 'state_dict': fr_model[1].state_dict()},
-               os.path.join(args.save_path, 'method3_vggface2_attention_classifier_prior_{}.pth.tar'.format(str(i))))
+               os.path.join(args.save_path,  'vggface2_attention_backbone_prior_{}.pth.tar'.format(str(i))))
+        torch.save({'epoch': i, 'state_dict': fr_model[1].state_dict()},
+               os.path.join(args.save_path, 'vggface2_attention_classifier_prior_{}.pth.tar'.format(str(i))))
     else:
         torch.save({'epoch': i, 'state_dict': fr_model.state_dict()},
                os.path.join(args.save_path, str(i) + 'celeba_baseline.pth.tar'))
